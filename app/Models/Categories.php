@@ -45,7 +45,7 @@ class Categories extends Model
 
     public function scopexxx()
     {
-        $results = DB::select(DB::raw("SELECT * FROM categories WHERE 1=1"));
+        $results = DB::select("SELECT * FROM categories WHERE 1=1");
         return $results;
 //dd($results);
         // DB::table("categories")->get();
@@ -55,7 +55,7 @@ class Categories extends Model
            'somevariable' => $someVariable,
          ));*/
         //$someVariable = Input::get("some_variable");
-        //$results = DB::select( DB::raw("SELECT * FROM some_table WHERE some_col = '$someVariable'") );
+        //$results = DB::select("SELECT * FROM some_table WHERE some_col = '$someVariable'");
 
 
         //DB::statement( 'ALTER TABLE HS_Request AUTO_INCREMENT=9999' );

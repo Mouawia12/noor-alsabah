@@ -1,6 +1,6 @@
 <?php
 //use App\Http\Controllers\DashboardController;
-//use App\Http\Controllers\Dashboard\CategoriesController;
+use App\Http\Controllers\Dashboard\CategoriesController;
 use App\Http\Controllers\Dashboard\WorkersController;
 use App\Http\Controllers\Dashboard\EmpsController;
 use App\Http\Controllers\Dashboard\AccountingsController;

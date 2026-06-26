@@ -1,4 +1,4 @@
-@extends('layouts.dashboard')
+@extends('layouts.app')
 @section('title', 'sss')
 @section('content')
     @if (session()->has('alert.success'))

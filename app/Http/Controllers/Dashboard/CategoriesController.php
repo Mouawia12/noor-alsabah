@@ -18,43 +18,6 @@ class CategoriesController extends Controller
      */
     public function index()
     {
-        //
-        //  return view('')
-        //   echo "dddddddddd";
-        // $results = DB::select( DB::raw("SELECT * FROM categories WHERE 1=1") );
-        // $results = DB::select('select * from users where id = ?', [1]);
-        //$results = DB::select( DB::raw("SELECT * FROM categories WHERE 1=1") );
-
-//$results = Categories::all();
-        $results = Categories::xxx();
-//dd($results);
-
-
-        $results1 = Categories::all();
-//dd($results1);
-
-
-        $catisdel = Categories::isdel()->get();
-//dd($catisdel);
-
-
-        $catisde3 = Categories::status(0)->get();
-//dd($catisde3);
-
-
-        $catisde4 = Categories::first();
-        //return $catisde4->attributesToArray();
-//dd($catisde4->attributesToArray());
-
-
-        $catisde4 = User::all();
-//return $catisde4->toArray();
-
-//$catisdel2=Categories::select("*")->status(0)->get();
-//dd($catisdel2);
-
-//Post::select("*")->status(1)->get();
-
         return view('dashboard.categories.index');
     }
 

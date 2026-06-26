@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Scope;
 use Illuminate\Support\Facades\DB;
 
-class emps extends Model
+class Emps extends Model
 {
     use HasFactory;
 
@@ -38,18 +38,18 @@ class emps extends Model
         }
         //  echo $sql;
         $sql = $sql . " order by id  desc LIMIT {$end}, {$start} ";
-        //   $results = DB::select( DB::raw($sql) );
+        //   $results = DB::select($sql);
         $results = DB::select($sql);
 
 
         //  dd($results);
 
-        //$count_rs_chk = count(DB::select( DB::raw( $sql)) );
+        //$count_rs_chk = count(DB::select($sql) );
 
         $count_rs_chk = count(DB::select($sql));
 
 
-        //$users=DB::select( DB::raw( $sql));
+        //$users=DB::select($sql);
         $users = DB::select($sql);
 
         $users = json_decode(json_encode($users), true);
@@ -80,20 +80,20 @@ class emps extends Model
         $sql = $sql . " order by id  desc LIMIT {$end}, {$start} ";
         // $result = $this->db->query($sql);
         // $count_rs_chk= $result->num_rows();
-        $result = DB::select(DB::raw($sql));
+        $result = DB::select($sql);
         // dd($result);
         // $count_rs_chk= $result->num_rows();
-        $count_rs_chk = count(DB::select(DB::raw($sql)));
+        $count_rs_chk = count(DB::select($sql));
 
         // return  $results;
 
-        //   $users=DB::select( DB::raw( $sql))->result_array();
+        //   $users=DB::select($sql)->result_array();
 
 
-        $users = DB::select(DB::raw($sql));
+        $users = DB::select($sql);
         $users = json_decode(json_encode($users), true);
 
-        //  $users = DB::select( DB::raw( $sql))->get();
+        //  $users = DB::select($sql)->get();
         // $users = $users->toArray();
 
         // dd($users);
@@ -244,7 +244,7 @@ class emps extends Model
         $rs_stmt1 = $rs_stmt1 . " order by exchange_id desc   ";
         $rs1 = $this->db->query($rs_stmt1);*/
 // $results = DB::query( $rs_stmt1 );
-        $results = count(DB::select(DB::raw($rs_stmt1)));
+        $results = count(DB::select($rs_stmt1));
 
         return $results;
 
@@ -273,13 +273,13 @@ class emps extends Model
         if ($email != "") {
             $rs_stmt1 = $rs_stmt1 . " and  users.email = '$email ' ";
         }
-        $results = DB::select(DB::raw($rs_stmt1));
+        $results = DB::select($rs_stmt1);
         return $results;
     }
 
     public function scopexxx()
     {
-        $results = DB::select(DB::raw("SELECT * FROM categories WHERE 1=1"));
+        $results = DB::select("SELECT * FROM categories WHERE 1=1");
         return $results;
         //dd($results);
         // DB::table("categories")->get();
@@ -289,7 +289,7 @@ class emps extends Model
            'somevariable' => $someVariable,
          ));*/
         //$someVariable = Input::get("some_variable");
-        //$results = DB::select( DB::raw("SELECT * FROM some_table WHERE some_col = '$someVariable'") );
+        //$results = DB::select("SELECT * FROM some_table WHERE some_col = '$someVariable'");
 
 
         //DB::statement( 'ALTER TABLE HS_Request AUTO_INCREMENT=9999' );

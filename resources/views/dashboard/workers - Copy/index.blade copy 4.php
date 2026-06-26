@@ -1,4 +1,4 @@
-@extends('layouts.dashboard')
+@extends('layouts.app')
 @section('module',"التدريب المهني")
 @section('sub',"الإجازة المهنية")
 @section('title',"ss")
