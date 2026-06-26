@@ -2,3 +2,11 @@
 /node_modules
 /public/uploads
 .env
+
+# secrets & logs (أُزيلت — كانت مكشوفة)
+/env
+error_log
+*.log
+/storage/*.key
+/public/storage
+/public/build
