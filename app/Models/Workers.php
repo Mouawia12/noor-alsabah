@@ -21,8 +21,16 @@ class Workers extends Model
     // public $incrementing = false;
 //protected $dateFormat = 'U';
 
-
-
+    /**
+     * أمن: تعقيم قائمة أعداد صحيحة تُستخدم داخل IN(...) — تحافظ على نفس القيم
+     * (رموز فئات 1..4) وتمنع حقن SQL. تُرجع "0" لو كانت القائمة فارغة لتفادي IN().
+     */
+    private static function intInList($list)
+    {
+        $parts = array_filter(array_map('trim', explode(',', (string) $list)), 'strlen');
+        $ints = array_map('intval', $parts);
+        return count($ints) ? implode(',', $ints) : '0';
+    }
 
 
 
@@ -43,14 +51,14 @@ public function scopeworkercharthome($query)
 
    if(  $this->emp_job!=1){
     $rs_stmt1 = $rs_stmt1 . "
-        join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+        join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
     }
     $rs_stmt1 = $rs_stmt1 . " where  1=1 ";
 
     if(  $this->emp_job!=1){
     if (Perm::get_function_access(70)) {
-    $rs_stmt1 = $rs_stmt1 . " and  w.create_user = $this->user_id ";
+    $rs_stmt1 = $rs_stmt1 . " and  w.create_user = " . (int) $this->user_id . " ";
     }
     }
 $rs_stmt1 = $rs_stmt1 . "     GROUP BY w.manager_id";
@@ -74,12 +82,13 @@ $rs_stmt1 = $rs_stmt1 . "     GROUP BY w.manager_id";
         $resultCount = 50;
         $end = ($page - 1) * $resultCount;
         $start = $end + $resultCount;
+        $bind = [];
         $sql = "SELECT worker_name as name, worker_id as id_no,worker_id as id,ssn,ssn
         from  workers    ";
 
 
 if(  $this->emp_job!=1){
-    $sql = $sql . "    join workers_manager wm on workers.manager_id =wm.manager_id and  wm.user_id=$this->user_id ";
+    $sql = $sql . "    join workers_manager wm on workers.manager_id =wm.manager_id and  wm.user_id=" . (int) $this->user_id . " ";
 
    // $sql = $sql . "  join workers_manager wm on (workers.manager_id =wm.manager_id and  wm.user_id=$this->user_id) or (workers.manager_id is null )";
 
@@ -89,12 +98,14 @@ $sql = $sql . " where  1=1 ";
 
 
         if ($string != "") {
-            $sql = $sql . " and ( worker_name LIKE '%$string%' or ssn LIKE '$string%')    ";
+            $sql = $sql . " and ( worker_name LIKE ? or ssn LIKE ?)    ";
+            $bind[] = "%$string%";
+            $bind[] = "$string%";
         }
-        $sql = $sql . " group by worker_id order by worker_id   desc LIMIT {$end}, {$start} ";
-        $results = DB::select($sql);
-        $count_rs_chk = count(DB::select($sql));
-        $users = DB::select($sql);
+        $sql = $sql . " group by worker_id order by worker_id   desc LIMIT " . (int) $end . ", " . (int) $start . " ";
+        $results = DB::select($sql, $bind);
+        $count_rs_chk = count(DB::select($sql, $bind));
+        $users = DB::select($sql, $bind);
         $users = json_decode(json_encode($users), true);
         $data = array();
         foreach ($users as $user) {
@@ -266,6 +277,7 @@ $sql = $sql . " where  1=1 ";
         $is_imp = TRIM($is_imp);
         $nation = TRIM($nation);
 
+        $bind = [];
 
         $rs_stmt1 = " SELECT w.*,n.nation_name_ar,j.job_name,wp.work_place_name,m.manager_name,
             CASE
@@ -297,30 +309,34 @@ $sql = $sql . " where  1=1 ";
 
     if(  $this->emp_job!=1){
         $rs_stmt1 = $rs_stmt1 . "
-            join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+            join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 ";
 
         if(  $this->emp_job!=1){
         if (Perm::get_function_access(70)) {
-        $rs_stmt1 = $rs_stmt1 . " and  w.create_user = $this->user_id ";
+        $rs_stmt1 = $rs_stmt1 . " and  w.create_user = " . (int) $this->user_id . " ";
         }
         }
 
 
         if ($worker_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  w.worker_id = '$worker_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  w.worker_id = ? ";
+            $bind[] = $worker_id;
         }
 
         if ($inside != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  w.inside = '$inside' ";
+            $rs_stmt1 = $rs_stmt1 . " and  w.inside = ? ";
+            $bind[] = $inside;
         }
         if ($is_imp != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  w.is_imp = '$is_imp' ";
+            $rs_stmt1 = $rs_stmt1 . " and  w.is_imp = ? ";
+            $bind[] = $is_imp;
         }
         if ($nation != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  w.nation_id = '$nation' ";
+            $rs_stmt1 = $rs_stmt1 . " and  w.nation_id = ? ";
+            $bind[] = $nation;
         }
 
                 if ($end_dt != '') {
@@ -331,7 +347,7 @@ $sql = $sql . " where  1=1 ";
                     WHEN  w.doe  <=CURDATE() THEN '2'
                     WHEN  w.doe is null THEN '4'
                     ELSE '1'
-                    END) IN ($end_dt)
+                    END) IN (" . self::intInList($end_dt) . ")
             ";
                 }
 
@@ -343,28 +359,33 @@ $sql = $sql . " where  1=1 ";
                         WHEN  w.dop  <=CURDATE() THEN '2'
                         WHEN  w.dop is null THEN '4'
                         ELSE '1'
-                        END) IN ($end_p_dt)
+                        END) IN (" . self::intInList($end_p_dt) . ")
                 ";
                 }
 
 
                 if ($worker_name != "") {
-                    $rs_stmt1 = $rs_stmt1 . " and  w.worker_name like '%$worker_name%' ";
+                    $rs_stmt1 = $rs_stmt1 . " and  w.worker_name like ? ";
+                    $bind[] = "%$worker_name%";
                 }
 
                 if ($ssn != "") {
-                    $rs_stmt1 = $rs_stmt1 . " and  w.ssn = '$ssn ' ";
+                    $rs_stmt1 = $rs_stmt1 . " and  w.ssn = ? ";
+                    $bind[] = $ssn;
                 }
 
                 if ($work_place_id != "") {
-                    $rs_stmt1 = $rs_stmt1 . " and  w.work_place_id = '$work_place_id ' ";
+                    $rs_stmt1 = $rs_stmt1 . " and  w.work_place_id = ? ";
+                    $bind[] = $work_place_id;
                 }
                 if ($manager_id != "") {
-                    $rs_stmt1 = $rs_stmt1 . " and  w.manager_id = '$manager_id ' ";
+                    $rs_stmt1 = $rs_stmt1 . " and  w.manager_id = ? ";
+                    $bind[] = $manager_id;
                 }
 
                 if ($doe != "") {
-                    $rs_stmt1 = $rs_stmt1 . " and  w.doe = '$doe ' ";
+                    $rs_stmt1 = $rs_stmt1 . " and  w.doe = ? ";
+                    $bind[] = $doe;
                 }
                 if ($updatedcancal_at != "") {
                     if ($updatedcancal_at == "1") {
@@ -374,11 +395,12 @@ $sql = $sql . " where  1=1 ";
                     }
                 }
                 if ($job_id != "") {
-                    $rs_stmt1 = $rs_stmt1 . " and  w.job_id = '$job_id ' ";
+                    $rs_stmt1 = $rs_stmt1 . " and  w.job_id = ? ";
+                    $bind[] = $job_id;
                 }
                 $rs_stmt1 = $rs_stmt1 . "  group by w.worker_id  ";
 
-        $results = DB::select($rs_stmt1);
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }
@@ -399,10 +421,12 @@ $sql = $sql . " where  1=1 ";
         $is_imp = TRIM($is_imp);
         $nation = TRIM($nation);
 
+        $bind = [];
+
         $rs_stmt1 = " SELECT worker_id FROM  workers   ";
         if(  $this->emp_job!=1){
            $rs_stmt1 = $rs_stmt1 . "
-            join workers_manager wm on workers.manager_id =wm.manager_id and  wm.user_id=$this->user_id";
+            join workers_manager wm on workers.manager_id =wm.manager_id and  wm.user_id=" . (int) $this->user_id;
            // $rs_stmt1 = $rs_stmt1 . "  join workers_manager wm on (workers.manager_id =wm.manager_id and  wm.user_id=$this->user_id) or (workers.manager_id is null )";
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 ";
@@ -410,46 +434,54 @@ $sql = $sql . " where  1=1 ";
 
 if(  $this->emp_job!=1){
 if (Perm::get_function_access(70)) {
-$rs_stmt1 = $rs_stmt1 . " and  create_user = $this->user_id ";
+$rs_stmt1 = $rs_stmt1 . " and  create_user = " . (int) $this->user_id . " ";
 }
 }
 
 if ($inside != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  inside = '$inside' ";
+    $rs_stmt1 = $rs_stmt1 . " and  inside = ? ";
+    $bind[] = $inside;
 }
 if ($is_imp != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  is_imp = '$is_imp' ";
+    $rs_stmt1 = $rs_stmt1 . " and  is_imp = ? ";
+    $bind[] = $is_imp;
 }
 if ($nation != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  nation_id = '$nation' ";
+    $rs_stmt1 = $rs_stmt1 . " and  nation_id = ? ";
+    $bind[] = $nation;
 }
 
         if ($worker_name != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  worker_name like '%$worker_name%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  worker_name like ? ";
+            $bind[] = "%$worker_name%";
         }
 
-        
+
 
         if( $residence_month!='')
         {
-            $rs_stmt1 = $rs_stmt1 . " and  MONTH(doe) = '$residence_month ' ";
-           
+            $rs_stmt1 = $rs_stmt1 . " and  MONTH(doe) = ? ";
+            $bind[] = $residence_month;
+
         }
         if( $residence_year!='')
         {
-            $rs_stmt1 = $rs_stmt1 . " and  YEAR(doe) = '$residence_year ' ";
-           
+            $rs_stmt1 = $rs_stmt1 . " and  YEAR(doe) = ? ";
+            $bind[] = $residence_year;
+
         }
 
         if( $passport_month!='')
         {
-            $rs_stmt1 = $rs_stmt1 . " and  MONTH(dop) = '$passport_month ' ";
-           
+            $rs_stmt1 = $rs_stmt1 . " and  MONTH(dop) = ? ";
+            $bind[] = $passport_month;
+
         }
         if( $passport_year!='')
         {
-            $rs_stmt1 = $rs_stmt1 . " and  YEAR(dop) = '$passport_year ' ";
-           
+            $rs_stmt1 = $rs_stmt1 . " and  YEAR(dop) = ? ";
+            $bind[] = $passport_year;
+
         }
 
 
@@ -461,7 +493,7 @@ if ($nation != "") {
                 WHEN  doe  <=CURDATE() THEN '2'
                 WHEN  doe is null THEN '4'
                 ELSE '1'
-                END) IN ($end_dt)
+                END) IN (" . self::intInList($end_dt) . ")
         ";
         }
 
@@ -473,23 +505,27 @@ if ($nation != "") {
                     WHEN  doe  <=CURDATE() THEN '2'
                     WHEN  doe is null THEN '4'
                     ELSE '1'
-                    END) IN ($end_p_dt)
+                    END) IN (" . self::intInList($end_p_dt) . ")
             ";
         }
 
         if ($ssn != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ssn = '$ssn ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  ssn = ? ";
+            $bind[] = $ssn;
         }
 
         if ($work_place_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  work_place_id = '$work_place_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  work_place_id = ? ";
+            $bind[] = $work_place_id;
         }
 
         if ($doe != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  doe = '$doe ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  doe = ? ";
+            $bind[] = $doe;
         }
         if ($manager_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  workers.manager_id = '$manager_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  workers.manager_id = ? ";
+            $bind[] = $manager_id;
         }
 
 
@@ -502,47 +538,15 @@ if ($nation != "") {
             }
         }
         if ($job_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  job_id = '$job_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  job_id = ? ";
+            $bind[] = $job_id;
         }
         $rs_stmt1 = $rs_stmt1 . "  group by workers.worker_id ";
 
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
     public function scopeserachspenddata($query, $worker_name, $ssn, $work_place_id, $doe, $updatedcancal_at, $job_id, $end_dt, $end_p_dt,$manager_id,$inside,$is_imp,$nation,$order_date, $residence_month,$residence_year,$passport_month,$passport_year)
@@ -562,9 +566,12 @@ if ($nation != "") {
         $is_imp = TRIM($is_imp);
         $nation = TRIM($nation);
 
+        $bind = [];
+
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            // أمن: فهرس العمود عدد صحيح، واتجاه الفرز قائمة بيضاء (نفس المنطق السابق)
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -576,17 +583,17 @@ if ($nation != "") {
         }
         if($order_date=="passport_date")
         {
-            //جواز السفر 
+            //جواز السفر
             $ord = " ORDER BY w.doe   ";
 
         }
         else
         {
-            // تاريخ انتهاء الاقامة 
+            // تاريخ انتهاء الاقامة
             $ord = " ORDER BY w.dop   ";
 
         }
-        
+
 
         $rs_stmt1 = " SELECT w.*,n.nation_name_ar,j.job_name,wp.work_place_name,m.manager_name,count(distinct(wn.worker_note_id)) as count_work_note,
 u.name ,u2.name as 'imp_user',
@@ -628,27 +635,30 @@ left join  users u2 on w.imp_user=u2.id
 
 if(  $this->emp_job!=1){
 $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
 }
 $rs_stmt1 = $rs_stmt1 . " where  1=1 ";
 
 if(  $this->emp_job!=1){
 if (Perm::get_function_access(70)) {
-$rs_stmt1 = $rs_stmt1 . " and  w.create_user = $this->user_id ";
+$rs_stmt1 = $rs_stmt1 . " and  w.create_user = " . (int) $this->user_id . " ";
 }
 }
 
 
 
 if ($inside != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  w.inside = '$inside' ";
+    $rs_stmt1 = $rs_stmt1 . " and  w.inside = ? ";
+    $bind[] = $inside;
 }
 if ($is_imp != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  w.is_imp = '$is_imp' ";
+    $rs_stmt1 = $rs_stmt1 . " and  w.is_imp = ? ";
+    $bind[] = $is_imp;
 }
 if ($nation != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  w.nation_id = '$nation' ";
+    $rs_stmt1 = $rs_stmt1 . " and  w.nation_id = ? ";
+    $bind[] = $nation;
 }
 
         if ($end_dt != '') {
@@ -659,13 +669,13 @@ if ($nation != "") {
             WHEN  w.doe  <=CURDATE() THEN '2'
             WHEN  w.doe is null THEN '4'
             ELSE '1'
-            END) IN ($end_dt)
+            END) IN (" . self::intInList($end_dt) . ")
     ";
         }
 
-        
 
-    
+
+
 
 
         if ($end_p_dt != '') {
@@ -676,51 +686,60 @@ if ($nation != "") {
                 WHEN  w.dop  <=CURDATE() THEN '2'
                 WHEN  w.dop is null THEN '4'
                 ELSE '1'
-                END) IN ($end_p_dt)
+                END) IN (" . self::intInList($end_p_dt) . ")
         ";
         }
 
 
         if ($worker_name != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  w.worker_name like '%$worker_name%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  w.worker_name like ? ";
+            $bind[] = "%$worker_name%";
         }
 
         if ($ssn != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  w.ssn = '$ssn ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  w.ssn = ? ";
+            $bind[] = $ssn;
         }
 
         if ($work_place_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  w.work_place_id = '$work_place_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  w.work_place_id = ? ";
+            $bind[] = $work_place_id;
         }
         if ($manager_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  w.manager_id = '$manager_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  w.manager_id = ? ";
+            $bind[] = $manager_id;
         }
 
         if ($doe != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  w.doe = '$doe ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  w.doe = ? ";
+            $bind[] = $doe;
         }
 
 
         if( $residence_month!='')
         {
-            $rs_stmt1 = $rs_stmt1 . " and  MONTH(doe) = '$residence_month ' ";
-           
+            $rs_stmt1 = $rs_stmt1 . " and  MONTH(doe) = ? ";
+            $bind[] = $residence_month;
+
         }
         if( $residence_year!='')
         {
-            $rs_stmt1 = $rs_stmt1 . " and  YEAR(doe) = '$residence_year ' ";
-           
+            $rs_stmt1 = $rs_stmt1 . " and  YEAR(doe) = ? ";
+            $bind[] = $residence_year;
+
         }
 
         if( $passport_month!='')
         {
-            $rs_stmt1 = $rs_stmt1 . " and  MONTH(dop) = '$passport_month ' ";
-           
+            $rs_stmt1 = $rs_stmt1 . " and  MONTH(dop) = ? ";
+            $bind[] = $passport_month;
+
         }
         if( $passport_year!='')
         {
-            $rs_stmt1 = $rs_stmt1 . " and  YEAR(dop) = '$passport_year  ' ";
-           
+            $rs_stmt1 = $rs_stmt1 . " and  YEAR(dop) = ? ";
+            $bind[] = $passport_year;
+
         }
 
 
@@ -734,16 +753,17 @@ if ($nation != "") {
             }
         }
         if ($job_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  w.job_id = '$job_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  w.job_id = ? ";
+            $bind[] = $job_id;
         }
         $rs_stmt1 = $rs_stmt1 . "  group by w.worker_id  ";
 
         $rs_stmt1 = $rs_stmt1 . $ord;
 
         if(isset( $_POST['length']))
-            $rs_stmt1 = $rs_stmt1 . "   limit $b,$a ";
+            $rs_stmt1 = $rs_stmt1 . "   limit " . (int) $b . "," . (int) $a . " ";
 
-        $results = DB::select($rs_stmt1);
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }
@@ -792,14 +812,14 @@ left join  manager m on w.manager_id=m.manager_id
 
 if(  $this->emp_job!=1){
 $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
 }
 $rs_stmt1 = $rs_stmt1 . " where  1=1 ";
 
 if(  $this->emp_job!=1){
 if (Perm::get_function_access(70)) {
-$rs_stmt1 = $rs_stmt1 . " and  w.create_user = $this->user_id ";
+$rs_stmt1 = $rs_stmt1 . " and  w.create_user = " . (int) $this->user_id . " ";
 }
 }
 
@@ -812,7 +832,7 @@ $rs_stmt1 = $rs_stmt1 . " and  w.create_user = $this->user_id ";
             WHEN  w.doe  <=CURDATE() THEN '2'
             WHEN  w.doe is null THEN '4'
             ELSE '1'
-            END) IN ($end_dt)
+            END) IN (" . self::intInList($end_dt) . ")
 
            or
             (
@@ -821,7 +841,7 @@ $rs_stmt1 = $rs_stmt1 . " and  w.create_user = $this->user_id ";
                 WHEN  w.dop  <=CURDATE() THEN '2'
                 WHEN  w.dop is null THEN '4'
                 ELSE '1'
-                END) IN ($end_p_dt)
+                END) IN (" . self::intInList($end_p_dt) . ")
                 )
         ";
 
@@ -833,7 +853,6 @@ $rs_stmt1 = $rs_stmt1 . " and  w.create_user = $this->user_id ";
 
         return $results;
     }
-
 
 
 
@@ -863,6 +882,8 @@ $rs_stmt1 = $rs_stmt1 . " and  w.create_user = $this->user_id ";
         $inside = TRIM($inside);
         $is_imp = TRIM($is_imp);
         $nation = TRIM($nation);
+
+        $bind = [];
 
         $rs_stmt1 = " SELECT
 
@@ -895,48 +916,55 @@ COUNT(CASE WHEN  w.inside  =1   THEN 1 END) AS `in_ksa`
 
 if(  $this->emp_job!=1){
 $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
 }
 $rs_stmt1 = $rs_stmt1 . " where  1=1 ";
 
 if(  $this->emp_job!=1){
 if (Perm::get_function_access(70)) {
-$rs_stmt1 = $rs_stmt1 . " and  w.create_user = $this->user_id ";
+$rs_stmt1 = $rs_stmt1 . " and  w.create_user = " . (int) $this->user_id . " ";
 }
 }
 
 if ($inside != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  w.inside = '$inside' ";
+    $rs_stmt1 = $rs_stmt1 . " and  w.inside = ? ";
+    $bind[] = $inside;
 }
 if ($is_imp != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  w.is_imp = '$is_imp' ";
+    $rs_stmt1 = $rs_stmt1 . " and  w.is_imp = ? ";
+    $bind[] = $is_imp;
 }
 if ($nation != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  w.nation_id = '$nation' ";
+    $rs_stmt1 = $rs_stmt1 . " and  w.nation_id = ? ";
+    $bind[] = $nation;
 }
-        
+
 
 if( $residence_month!='')
 {
-    $rs_stmt1 = $rs_stmt1 . " and  MONTH(doe) = '$residence_month ' ";
-   
+    $rs_stmt1 = $rs_stmt1 . " and  MONTH(doe) = ? ";
+    $bind[] = $residence_month;
+
 }
 if( $residence_year!='')
 {
-    $rs_stmt1 = $rs_stmt1 . " and  YEAR(doe) = '$residence_year ' ";
-   
+    $rs_stmt1 = $rs_stmt1 . " and  YEAR(doe) = ? ";
+    $bind[] = $residence_year;
+
 }
 
 if( $passport_month!='')
 {
-    $rs_stmt1 = $rs_stmt1 . " and  MONTH(dop) = '$passport_month ' ";
-   
+    $rs_stmt1 = $rs_stmt1 . " and  MONTH(dop) = ? ";
+    $bind[] = $passport_month;
+
 }
 if( $passport_year!='')
 {
-    $rs_stmt1 = $rs_stmt1 . " and  YEAR(dop) = '$passport_year ' ";
-   
+    $rs_stmt1 = $rs_stmt1 . " and  YEAR(dop) = ? ";
+    $bind[] = $passport_year;
+
 }
 
 
@@ -950,7 +978,7 @@ if( $passport_year!='')
             WHEN  w.doe  <=CURDATE() THEN '2'
             WHEN  w.doe is null THEN '4'
             ELSE '1'
-            END) IN ($end_dt)
+            END) IN (" . self::intInList($end_dt) . ")
     ";
         }
 
@@ -962,28 +990,33 @@ if( $passport_year!='')
                 WHEN  w.dop  <=CURDATE() THEN '2'
                 WHEN  w.dop is null THEN '4'
                 ELSE '1'
-                END) IN ($end_p_dt)
+                END) IN (" . self::intInList($end_p_dt) . ")
         ";
         }
 
 
         if ($worker_name != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  w.worker_name like '%$worker_name%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  w.worker_name like ? ";
+            $bind[] = "%$worker_name%";
         }
 
         if ($ssn != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  w.ssn = '$ssn ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  w.ssn = ? ";
+            $bind[] = $ssn;
         }
 
         if ($work_place_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  w.work_place_id = '$work_place_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  w.work_place_id = ? ";
+            $bind[] = $work_place_id;
         }
         if ($manager_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  w.manager_id = '$manager_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  w.manager_id = ? ";
+            $bind[] = $manager_id;
         }
 
         if ($doe != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  w.doe = '$doe ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  w.doe = ? ";
+            $bind[] = $doe;
         }
         if ($updatedcancal_at != "") {
             if ($updatedcancal_at == "1") {
@@ -993,10 +1026,11 @@ if( $passport_year!='')
             }
         }
         if ($job_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  w.job_id = '$job_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  w.job_id = ? ";
+            $bind[] = $job_id;
         }
 
-        $results = DB::select($rs_stmt1);
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }
@@ -1004,32 +1038,17 @@ if( $passport_year!='')
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     public function scopeserachremarkcount($query, $worker_id)
     {
         $worker_id = TRIM($worker_id);
+        $bind = [];
         $rs_stmt1 = " SELECT worker_note_id FROM  worker_note where is_deleted=0  and   1=1  ";
         if ($worker_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  worker_id = '$worker_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  worker_id = ? ";
+            $bind[] = $worker_id;
         }
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -1039,9 +1058,11 @@ if( $passport_year!='')
         $a = $_POST['length'];
         $b = $_POST['start'];
         $worker_id = TRIM($worker_id);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            // أمن: فهرس العمود عدد صحيح، واتجاه الفرز قائمة بيضاء (نفس المنطق السابق)
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -1059,28 +1080,31 @@ if( $passport_year!='')
 
                     where sn.is_deleted=0 and sn.is_deleted=0  and 1=1  ";
         if ($worker_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sn.worker_id = '$worker_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sn.worker_id = ? ";
+            $bind[] = $worker_id;
         }
 
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
         return $results;
     }
 
     public function scopeserachhistorycount($query, $worker_id)
     {
         $worker_id = TRIM($worker_id);
+        $bind = [];
         $rs_stmt1 = " SELECT nh.worker_note_history_id  FROM  worker_note_history nh
          join worker_note sn on nh.worker_note_id=sn.worker_note_id
 
 
          where   1=1  ";
         if ($worker_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sn.worker_id = '$worker_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sn.worker_id = ? ";
+            $bind[] = $worker_id;
         }
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -1090,9 +1114,11 @@ if( $passport_year!='')
         $a = $_POST['length'];
         $b = $_POST['start'];
         $worker_id = TRIM($worker_id);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            // أمن: فهرس العمود عدد صحيح، واتجاه الفرز قائمة بيضاء (نفس المنطق السابق)
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -1113,18 +1139,14 @@ left join  note_type n2 on nh.old_note_type_id =n2.note_type_id
 
                     where    1=1 ";
         if ($worker_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sn.worker_id = '$worker_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sn.worker_id = ? ";
+            $bind[] = $worker_id;
         }
 
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
         return $results;
     }
 
 }
-
-
-
-
-
