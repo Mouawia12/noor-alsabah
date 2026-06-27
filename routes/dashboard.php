@@ -38,7 +38,7 @@ Route::group([
         Route::get('/', [HomeController::class, 'index'])->name('home');
         Route::resource('/categories', CategoriesController::class);
 
-        Route::get('/workers/index', [WorkersController::class, 'index'])->name('workers.index');
+        Route::get('/workers/index', [WorkersController::class, 'index'])->name('workers.index_page');
         Route::get('/workers/import', [WorkersController::class, 'import'])->name('workers.import');
         Route::post('/workers/impfile', [WorkersController::class, 'impfile'])->name('workers.impfile');
 
@@ -143,7 +143,7 @@ Route::group([
         Route::post('/emps/updrole', [empsController::class, 'updrole'])->name('emps.updrole');
         Route::resource('/emps', empsController::class);
 
-        Route::post('/accountings/create', [accountingsController::class, 'create'])->name('accountings.create');
+        Route::post('/accountings/create', [accountingsController::class, 'create'])->name('accountings.create_post');
         Route::post('/accountings/storepmonth', [accountingsController::class, 'storepmonth'])->name('accountings.storepmonth');
         Route::post('/accountings/pmonth_tbl', [accountingsController::class, 'pmonth_tbl'])->name('accountings.pmonth_tbl');
         Route::post('/accountings/ajax_search_pmonth', [accountingsController::class, 'ajax_search_pmonth'])->name('accountings.ajax_search_pmonth');
