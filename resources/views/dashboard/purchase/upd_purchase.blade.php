@@ -218,6 +218,22 @@
                                 </div>
                             </div>
 
+                            <div class="col-12 col-lg-2 col-md-12 col-sm-12 mb-5">
+                                <label class="form-label fs-6 fw-bold text-dark mb-3">المبلغ قبل الضريبة</label>
+                                <input {{$view =="true"? "disabled" : ''}} type="number" step="0.01" name="amount_before_tax"
+                                    value="{{ $purchase->amount_before_tax ?? '' }}" class="form-control fw-bold text-dark" placeholder="قبل الضريبة">
+                            </div>
+                            <div class="col-12 col-lg-2 col-md-12 col-sm-12 mb-5">
+                                <label class="form-label fs-6 fw-bold text-dark mb-3">قيمة الضريبة</label>
+                                <input {{$view =="true"? "disabled" : ''}} type="number" step="0.01" name="tax_amount"
+                                    value="{{ $purchase->tax_amount ?? '' }}" class="form-control fw-bold text-dark" placeholder="الضريبة">
+                            </div>
+                            <div class="col-12 col-lg-2 col-md-12 col-sm-12 mb-5">
+                                <label class="form-label fs-6 fw-bold text-dark mb-3">العملة</label>
+                                <input {{$view =="true"? "disabled" : ''}} type="text" name="currency"
+                                    value="{{ $purchase->currency ?? '' }}" class="form-control fw-bold text-dark" placeholder="مثال: SAR">
+                            </div>
+
 
 
 

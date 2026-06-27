@@ -4,6 +4,11 @@
 @section('title', $page_title)
 @section('content')
 
+    <div class="d-flex justify-content-end gap-2 mb-4">
+        <a href="{{ route('dashboard.purchase.ai.reports.export', ['format' => 'xlsx']) }}" class="btn btn-light-success btn-sm"><i class="fas fa-file-excel me-1"></i> تصدير Excel</a>
+        <a href="{{ route('dashboard.purchase.ai.reports.export', ['format' => 'pdf']) }}" class="btn btn-light-danger btn-sm"><i class="fas fa-file-pdf me-1"></i> تصدير PDF</a>
+    </div>
+
     <div class="row g-5 mb-5">
         <div class="col-md-3"><div class="card bg-light-primary"><div class="card-body text-center">
             <div class="fs-2 fw-bold text-primary">{{ $stats['items'] }}</div><div class="text-gray-700">إجمالي الفواتير المعالَجة</div>

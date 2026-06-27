@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Storage;
  */
 class PurchaseAiController extends Controller
 {
+    use \App\Http\Controllers\Dashboard\Concerns\ExportsReports;
+
     public function __construct(protected PurchaseImportService $importService) {}
 
     /** صفحة الرفع. */
@@ -168,6 +170,36 @@ class PurchaseAiController extends Controller
             ->groupBy('s.name')->orderByDesc('c')->limit(5)->get();
 
         return view('dashboard.purchase.ai.reports', compact('page_title', 'stats', 'topSuppliers'));
+    }
+
+    /** تصدير تقرير المشتريات (xlsx / pdf). */
+    public function exportReports(Request $request)
+    {
+        $format = $request->input('format', 'xlsx');
+
+        $byStatus = PurchaseImportItem::selectRaw('status, count(*) c')->groupBy('status')->pluck('c', 'status');
+        $approved = (int) ($byStatus['approved'] ?? 0);
+        $rejected = (int) ($byStatus['rejected'] ?? 0);
+        $reviewed = $approved + $rejected;
+
+        $rows = [
+            ['المؤشر', 'القيمة'],
+            ['عدد الدفعات', PurchaseImportBatch::count()],
+            ['إجمالي الفواتير', PurchaseImportItem::count()],
+            ['معتمدة', $approved],
+            ['مرفوضة', $rejected],
+            ['فاشلة', (int) ($byStatus['failed'] ?? 0)],
+            ['بانتظار المراجعة', (int) ($byStatus['needs_review'] ?? 0)],
+            ['نسبة الاعتماد %', $reviewed > 0 ? round($approved / $reviewed * 100) : 0],
+            ['إجمالي قيمة المشتريات المستوردة', DB::table('purchase')->whereNotNull('import_item_id')->sum('purchase_price')],
+        ];
+
+        $top = DB::table('purchase as p')->leftJoin('supplier as s', 's.supplier_id', '=', 'p.supplier_id')
+            ->whereNotNull('p.import_item_id')
+            ->selectRaw('COALESCE(s.name, "غير محدد") name, count(*) c, SUM(p.purchase_price) total')
+            ->groupBy('s.name')->orderByDesc('c')->limit(10)->get();
+
+        return $this->exportData('تقرير_المشتريات', $rows, $top, ['المورد', 'عدد الفواتير', 'الإجمالي'], $format);
     }
 
     /** اعتماد عنصر وإنشاء سجل مشتريات. */

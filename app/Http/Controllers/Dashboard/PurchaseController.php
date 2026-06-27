@@ -341,6 +341,9 @@ class PurchaseController extends Controller
                         'manager_id' => $request->manager_id ?? NULL,
 
                         'tax_number' => $request->tax_number,
+                        'amount_before_tax' => $request->amount_before_tax,
+                        'tax_amount' => $request->tax_amount,
+                        'currency' => $request->currency,
 
                         'purchase_respon' => $request->purchase_respon,
                         'purchasefile' => $purchasefile_url,

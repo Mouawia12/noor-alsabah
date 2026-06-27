@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\Storage;
  */
 class RentAiController extends Controller
 {
+    use \App\Http\Controllers\Dashboard\Concerns\ExportsReports;
+
     public function __construct(protected RentImportService $importService) {}
 
     public function index()
@@ -150,6 +152,29 @@ class RentAiController extends Controller
         ];
 
         return view('dashboard.rent.ai.reports', compact('page_title', 'stats'));
+    }
+
+    /** تصدير تقرير الإيجارات (xlsx / pdf). */
+    public function exportReports(Request $request)
+    {
+        $format = $request->input('format', 'xlsx');
+        $today = now()->toDateString();
+        $byStatus = RentContractImportItem::selectRaw('status, count(*) c')->groupBy('status')->pluck('c', 'status');
+
+        $rows = [
+            ['المؤشر', 'القيمة'],
+            ['عقود مستوردة', DB::table('shop_rent')->whereNotNull('import_item_id')->count()],
+            ['عقود نشطة', DB::table('shop_rent')->whereNotNull('end_date')->where('end_date', '>=', $today)->count()],
+            ['عقود منتهية', DB::table('shop_rent')->whereNotNull('end_date')->where('end_date', '<', $today)->count()],
+            ['عقود معالَجة', RentContractImportItem::count()],
+            ['معتمدة', (int) ($byStatus['approved'] ?? 0)],
+            ['بانتظار المراجعة', (int) ($byStatus['needs_review'] ?? 0)],
+            ['فاشلة', (int) ($byStatus['failed'] ?? 0)],
+            ['دفعات مولّدة', DB::table('shop_rentpay')->count()],
+            ['إجمالي غير المسدَّد', DB::table('shop_rentpay')->where('is_paid', 0)->sum('rentpay_price')],
+        ];
+
+        return $this->exportData('تقرير_الإيجارات', $rows, [], [], $format);
     }
 
     public function approve(Request $request, RentContractImportItem $item)

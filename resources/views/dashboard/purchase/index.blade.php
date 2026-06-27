@@ -3,6 +3,10 @@
 @section('sub', 'الاداري ')
 @section('title', "$page_title")
 @section('content')
+    <div class="alert alert-primary d-flex flex-wrap align-items-center justify-content-between">
+        <span><i class="fas fa-robot me-2"></i> جديد: استورد الفواتير تلقائياً بالذكاء الاصطناعي بدل الإدخال اليدوي.</span>
+        <a href="{{ route('dashboard.purchase.ai.index') }}" class="btn btn-sm btn-primary">استيراد بالذكاء الاصطناعي</a>
+    </div>
     @if (session()->has('alert.success'))
         <div class="alert alert-success">
             {{ session('alert.success') }}
