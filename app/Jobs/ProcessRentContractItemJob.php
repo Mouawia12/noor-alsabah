@@ -101,6 +101,14 @@ class ProcessRentContractItemJob implements ShouldQueue
         $batch->refresh();
         if (($batch->processed_items + $batch->failed_items) >= $batch->total_items && $batch->total_items > 0) {
             $batch->update(['status' => RentContractImportBatch::STATUS_COMPLETED]);
+            $user = $batch->create_user ? \App\Models\User::find($batch->create_user) : null;
+            if ($user && $user->email) {
+                $user->notify(new \App\Notifications\BatchCompletedNotification(
+                    'rent', $batch->original_filename, $batch->total_items,
+                    $batch->processed_items, $batch->failed_items,
+                    route('dashboard.rent.ai.review', ['batch_id' => $batch->id])
+                ));
+            }
         }
     }
 }
