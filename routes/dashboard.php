@@ -11,6 +11,7 @@ use App\Http\Controllers\Dashboard\ViolationController;
 use App\Http\Controllers\Dashboard\ShopController;
 use App\Http\Controllers\Dashboard\ManagerController;
 use App\Http\Controllers\Dashboard\PurchaseController;
+use App\Http\Controllers\Dashboard\PurchaseAiController;
 use App\Http\Controllers\Dashboard\ExpenseController;
 use App\Http\Controllers\Dashboard\ConstantController;
 use App\Http\Controllers\Dashboard\MoraslatController;
@@ -308,6 +309,16 @@ Route::group([
         Route::post('/purchase/ajax_search_project', [purchaseController::class, 'ajax_search_project'])->name('purchase.ajax_search_project');
         Route::get('/purchase/views', [purchaseController::class, 'views'])->name('purchase.views');
         Route::post('/purchase/updstore', [purchaseController::class, 'updstore'])->name('purchase.updstore');
+
+        // ===== استيراد الفواتير بالذكاء الاصطناعي (يجب أن تسبق resource لتفادي التقاط /purchase/{purchase}) =====
+        Route::get('/purchase/ai', [PurchaseAiController::class, 'index'])->name('purchase.ai.index');
+        Route::post('/purchase/ai/upload', [PurchaseAiController::class, 'store'])->name('purchase.ai.store');
+        Route::get('/purchase/ai/review', [PurchaseAiController::class, 'review'])->name('purchase.ai.review');
+        Route::get('/purchase/ai/batch/{batch}', [PurchaseAiController::class, 'batch'])->name('purchase.ai.batch');
+        Route::get('/purchase/ai/batch/{batch}/json', [PurchaseAiController::class, 'batchJson'])->name('purchase.ai.batch.json');
+        Route::post('/purchase/ai/item/{item}/approve', [PurchaseAiController::class, 'approve'])->name('purchase.ai.approve');
+        Route::post('/purchase/ai/item/{item}/reject', [PurchaseAiController::class, 'reject'])->name('purchase.ai.reject');
+
         Route::resource('/purchase', purchaseController::class);
         Route::post('/purchase/print', [purchaseController::class, 'print'])->name('purchase.print');
         Route::post('/purchase/sel_worker_list', [purchaseController::class, 'sel_worker_list'])->name('purchase.sel_worker_list');

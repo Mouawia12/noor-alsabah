@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\Ai\ExtractionManager;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -25,6 +26,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-        //
+        // ترقيم الصفحات بنمط Bootstrap (الثيم Metronic يعتمده)
+        Paginator::useBootstrapFive();
     }
 }
