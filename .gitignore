@@ -10,3 +10,11 @@ error_log
 /storage/*.key
 /public/storage
 /public/build
+
+# database dumps / backups (لا تُرفع أبداً — قد تحتوي بيانات وكلمات مرور)
+*.sql
+*.sql.gz
+*.dump
+*.bak
+/database/dumps
+/database/backups
