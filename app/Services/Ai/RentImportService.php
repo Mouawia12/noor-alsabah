@@ -53,8 +53,12 @@ class RentImportService
      */
     public function approveItem(RentContractImportItem $item, array $overrides = [], ?int $userId = null): int
     {
-        $data = array_merge((array) ($item->extracted_json['data'] ?? $item->extracted_json ?? []), $overrides);
+        $origExtracted = (array) ($item->extracted_json['data'] ?? $item->extracted_json ?? []);
+        $data = array_merge($origExtracted, $overrides);
         $shopId = $overrides['shop_id'] ?? $item->shop_id;
+
+        // التعلّم المستمر: سجّل تصحيحات المستخدم
+        app(CorrectionService::class)->record('rent', $origExtracted, $data, $data['contract_no'] ?? null, $userId);
 
         return DB::transaction(function () use ($item, $data, $shopId, $overrides, $userId) {
             // 1) إنشاء العقد (تعبئة الأعمدة القديمة ليعرضها النظام الحالي + الجديدة)

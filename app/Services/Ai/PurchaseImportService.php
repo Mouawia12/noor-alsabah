@@ -56,7 +56,11 @@ class PurchaseImportService
      */
     public function approveItem(PurchaseImportItem $item, array $overrides = [], ?int $userId = null): int
     {
-        $data = array_merge((array) ($item->extracted_json['data'] ?? $item->extracted_json ?? []), $overrides);
+        $origExtracted = (array) ($item->extracted_json['data'] ?? $item->extracted_json ?? []);
+        $data = array_merge($origExtracted, $overrides);
+
+        // التعلّم المستمر: سجّل أي تصحيحات قام بها المستخدم
+        app(CorrectionService::class)->record('purchase', $origExtracted, $data, $data['tax_number'] ?? null, $userId);
 
         // تحديد المورد: معرّف صريح، أو إنشاء جديد عند الطلب
         $supplierId = $overrides['supplier_id'] ?? null;

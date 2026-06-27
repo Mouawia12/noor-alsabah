@@ -40,11 +40,12 @@ class ProcessRentContractItemJob implements ShouldQueue
             $images = array_filter(explode(',', (string) $item->source_file_path));
             $engine = $manager->engine();
 
-            $result = $engine->extract($images, ContractSchema::schema(), ContractSchema::prompt());
+            $prompt = ContractSchema::prompt() . app(\App\Services\Ai\CorrectionService::class)->hints('rent');
+            $result = $engine->extract($images, ContractSchema::schema(), $prompt);
             $threshold = (float) config('ai.confidence_threshold', 0.8);
 
             if (config('ai.escalate_on_low_conf') && $result->confidence !== null && $result->confidence < $threshold) {
-                $heavy = $engine->extract($images, ContractSchema::schema(), ContractSchema::prompt(), ['heavy' => true]);
+                $heavy = $engine->extract($images, ContractSchema::schema(), $prompt, ['heavy' => true]);
                 if (($heavy->confidence ?? 0) > ($result->confidence ?? 0)) {
                     $result = $heavy;
                 }

@@ -47,12 +47,15 @@ class ProcessPurchaseItemJob implements ShouldQueue
             $images = array_filter(explode(',', (string) $item->source_file_path));
             $engine = $manager->engine();
 
+            // التعلّم المستمر: أضف تلميحات من تصحيحات سابقة إلى المطالبة
+            $prompt = InvoiceSchema::prompt() . app(\App\Services\Ai\CorrectionService::class)->hints('purchase');
+
             // 1) استخراج (مع تصعيد للنموذج الأقوى عند انخفاض الثقة)
-            $result = $engine->extract($images, InvoiceSchema::schema(), InvoiceSchema::prompt());
+            $result = $engine->extract($images, InvoiceSchema::schema(), $prompt);
             $threshold = (float) config('ai.confidence_threshold', 0.8);
 
             if (config('ai.escalate_on_low_conf') && $result->confidence !== null && $result->confidence < $threshold) {
-                $heavy = $engine->extract($images, InvoiceSchema::schema(), InvoiceSchema::prompt(), ['heavy' => true]);
+                $heavy = $engine->extract($images, InvoiceSchema::schema(), $prompt, ['heavy' => true]);
                 if (($heavy->confidence ?? 0) > ($result->confidence ?? 0)) {
                     $result = $heavy;
                     $result->calls++;
