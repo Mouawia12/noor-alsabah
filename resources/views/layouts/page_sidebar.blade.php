@@ -25,6 +25,15 @@
         <div
             class="menu menu-column menu-title-gray-800 menu-state-title-primary menu-state-icon-primary menu-state-bullet-primary menu-arrow-gray-500"
             id="#kt_aside_menu" data-kt-menu="true">
+            <div class="menu-item">
+                <a class="menu-link @if (Route::currentRouteName() == 'dashboard.notifications.index') active @endif"
+                   href="{{ route('dashboard.notifications.index') }}">
+                    <span class="menu-icon"><i class="fas fa-bell text-dark"></i></span>
+                    <span class="menu-title text-dark">الإشعارات</span>
+                    @php $unread = auth()->user() ? auth()->user()->unreadNotifications()->count() : 0; @endphp
+                    @if ($unread)<span class="badge badge-danger">{{ $unread }}</span>@endif
+                </a>
+            </div>
             <?php       if(Perm::get_controll_access(1)){?>
             <div data-kt-menu-trigger="click"
                  class="menu-item menu-accordion @if (Route::currentRouteName() == 'dashboard.emps.index' || Route::currentRouteName() == 'dashboard.emps.views' || Route::currentRouteName() == 'dashboard.emps.add_role'  || Route::currentRouteName() == 'dashboard.emps.view_role') hover show fs-6 fw-bold @endif">
@@ -335,6 +344,13 @@
                            href="{{ route('dashboard.rent.ai.review') }}">
                             <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
                             <span class="menu-title text-dark">مراجعة العقود المستخرجة</span>
+                        </a>
+                    </div>
+                    <div class="menu-item">
+                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.rent.alerts.index') active @endif"
+                           href="{{ route('dashboard.rent.alerts.index') }}">
+                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                            <span class="menu-title text-dark">لوحة متابعة الإيجارات والتنبيهات</span>
                         </a>
                     </div>
 

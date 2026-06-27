@@ -33,7 +33,8 @@ class Kernel extends ConsoleKernel
      $schedule->command('testing:cron')->lastDayOfMonth('15:00')->runInBackground();
      $schedule->command('worker:cron')->lastDayOfMonth('15:00')->runInBackground();
 
-
+     // تنبيهات الإيجارات اليومية (دفعات مستحقة/متأخرة + عقود قاربت الانتهاء)
+     $schedule->command('rent:alerts')->dailyAt('08:00')->runInBackground();
     }
 
     /**

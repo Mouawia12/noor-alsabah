@@ -13,6 +13,8 @@ use App\Http\Controllers\Dashboard\ManagerController;
 use App\Http\Controllers\Dashboard\PurchaseController;
 use App\Http\Controllers\Dashboard\PurchaseAiController;
 use App\Http\Controllers\Dashboard\RentAiController;
+use App\Http\Controllers\Dashboard\RentAlertsController;
+use App\Http\Controllers\Dashboard\NotificationController;
 use App\Http\Controllers\Dashboard\ExpenseController;
 use App\Http\Controllers\Dashboard\ConstantController;
 use App\Http\Controllers\Dashboard\MoraslatController;
@@ -328,6 +330,15 @@ Route::group([
         Route::get('/rent/ai/batch/{batch}/json', [RentAiController::class, 'batchJson'])->name('rent.ai.batch.json');
         Route::post('/rent/ai/item/{item}/approve', [RentAiController::class, 'approve'])->name('rent.ai.approve');
         Route::post('/rent/ai/item/{item}/reject', [RentAiController::class, 'reject'])->name('rent.ai.reject');
+
+        // ===== لوحة متابعة الإيجارات والتنبيهات =====
+        Route::get('/rent/alerts', [RentAlertsController::class, 'index'])->name('rent.alerts.index');
+        Route::post('/rent/alerts/pay/{rentpay}', [RentAlertsController::class, 'markPaid'])->name('rent.alerts.pay');
+
+        // ===== الإشعارات داخل النظام =====
+        Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+        Route::post('/notifications/read/{id}', [NotificationController::class, 'markRead'])->name('notifications.read');
+        Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read_all');
 
         Route::resource('/purchase', purchaseController::class);
         Route::post('/purchase/print', [purchaseController::class, 'print'])->name('purchase.print');
