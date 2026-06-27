@@ -111,6 +111,9 @@
             </div>
 
             <div class="card-footer d-flex justify-content-end gap-2">
+                <form action="{{ route('dashboard.rent.ai.reprocess', $item->id) }}" method="POST">
+                    @csrf<button type="submit" class="btn btn-light">إعادة الاستخراج</button>
+                </form>
                 <form action="{{ route('dashboard.rent.ai.reject', $item->id) }}" method="POST" onsubmit="return confirm('تأكيد رفض هذا العقد؟');">
                     @csrf<input type="hidden" name="reason" value="رُفض يدوياً من المراجعة">
                     <button type="submit" class="btn btn-light-danger">رفض</button>
