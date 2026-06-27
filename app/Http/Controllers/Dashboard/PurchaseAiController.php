@@ -98,6 +98,15 @@ class PurchaseAiController extends Controller
         return view('dashboard.purchase.ai.review', compact('page_title', 'items'));
     }
 
+    /** عرض صورة صفحة المستند الأصلي (من القرص الخاص) — للمراجعة. */
+    public function image(PurchaseImportItem $item, int $page = 0)
+    {
+        $paths = array_values(array_filter(explode(',', (string) $item->source_file_path)));
+        abort_if(empty($paths) || ! isset($paths[$page]) || ! is_file($paths[$page]), 404);
+
+        return response()->file($paths[$page]);
+    }
+
     /** العناصر الفاشلة + إعادة المعالجة. */
     public function failed()
     {

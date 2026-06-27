@@ -92,6 +92,15 @@ class RentAiController extends Controller
         return view('dashboard.rent.ai.review', compact('page_title', 'items', 'shops'));
     }
 
+    /** عرض صورة صفحة العقد الأصلي (من القرص الخاص). */
+    public function image(RentContractImportItem $item, int $page = 0)
+    {
+        $paths = array_values(array_filter(explode(',', (string) $item->source_file_path)));
+        abort_if(empty($paths) || ! isset($paths[$page]) || ! is_file($paths[$page]), 404);
+
+        return response()->file($paths[$page]);
+    }
+
     public function failed()
     {
         $page_title = 'العقود غير المعالجة';
