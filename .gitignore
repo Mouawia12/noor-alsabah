@@ -11,9 +11,6 @@ error_log
 /public/storage
 /public/build
 
-# وثائق العميل الداخلية (لا تُرفع — المستودع عام)
-CLIENT_REQUIREMENTS_CHECKLIST_AR.md
-
 # database dumps / backups (لا تُرفع أبداً — قد تحتوي بيانات وكلمات مرور)
 *.sql
 *.sql.gz
