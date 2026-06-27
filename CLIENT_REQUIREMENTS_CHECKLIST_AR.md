@@ -56,25 +56,27 @@
 *(نبدأ هنا كما طلبت — "تضبيط مفاتيح وملفات لازمة ومكاتب")*
 
 **أ) المفاتيح والإعدادات**
-- [ ] إضافة `OPENAI_API_KEY` إلى `.env` و`.env.example` (بقيمة فارغة في المثال).
-- [ ] إنشاء `config/ai.php`: المحرك الافتراضي (`openai`)، معرّفات النماذج (`gpt-4o-mini`/`gpt-4o`)، الحد الأقصى للدفعة، حد الثقة، المهلات، مسار التخزين، سقف التكلفة.
-- [ ] ضبط `QUEUE_CONNECTION` + هجرة جدول `jobs` و`failed_jobs` (موجود failed_jobs).
-- [ ] قرص تخزين خاص للملفات الأصلية: `config/filesystems.php` → disk `private` (خارج public).
-- [ ] التحقق من توفّر Imagick + Ghostscript على السيرفر (أو اعتماد البديل).
+- [x] إضافة `OPENAI_API_KEY` إلى `.env` و`.env.example` (بقيمة فارغة — يملؤها المستخدم).
+- [x] إنشاء `config/ai.php`: المحرك (`openai`)، النماذج (`gpt-4o-mini`/`gpt-4o`)، حد الثقة، سقف الصفحات/التكلفة، المهلات، القرص، اللغات، DPI.
+- [x] ضبط `QUEUE_CONNECTION=database` + هجرتا `jobs` و`notifications` (failed_jobs موجود).
+- [x] قرص تخزين خاص `ai_private` في `config/filesystems.php` (خارج public).
+- [ ] التحقق من توفّر Imagick + Ghostscript على السيرفر (تبعية بيئة — تُفحص عند النشر).
 
 **ب) المكتبات (composer)**
-- [ ] `composer require setasign/fpdi smalot/pdfparser`
-- [ ] (عند الحاجة) `composer require intervention/image` أو استخدام Imagick مباشرة.
+- [x] `composer require setasign/fpdi smalot/pdfparser` (تم — مع تجاوز فحص منصّة لمشكلتي oci8/htmlpurifier السابقتين).
+- [ ] (عند الحاجة لاحقاً) `intervention/image` أو Imagick مباشرة لمعالجة الصور.
 
-**ج) بنية البيانات (هجرات Laravel — مهم: المشروع يفتقد هجرات للجداول الحالية)**
-- [ ] **توسعة جدول `purchase`:** إضافة `supplier_id` (FK)، `currency`، `amount_before_tax`، `tax_amount`. (الموجود: `purchase_price`=الإجمالي، `tax_number`).
-- [ ] جدول جديد `supplier` (الموردون): `supplier_id, name, tax_number, ...` للمطابقة والإنشاء التلقائي.
-- [ ] جدول `purchase_import_batch`: `id, file_path, status, total, processed, failed, create_user, created_at`.
-- [ ] جدول `purchase_import_item`: `id, batch_id, page_no, extracted_json, confidence, status(pending/approved/rejected/failed), error_reason, purchase_id, file_path`.
-- [ ] **توسعة `shop_rent`** بحقول العقد: `contract_no, start_date, end_date, landlord, tenant, property_info, rent_value, payments_count, renewal_terms, termination_terms`.
-- [ ] جدول `rent_contract_import` (دفعة + عناصر) مثل المشتريات لعقود الإيجار.
-- [ ] جدول `audit_log` لتتبّع كل تعديل/اعتماد ونتيجة معالجة (مطلب صريح من العميل).
-- [ ] (إن لزم) جدول `notification` للتنبيهات.
+**ج) بنية البيانات (هجرات Laravel محميّة بـ `hasTable`/`hasColumn`)**
+- [x] **توسعة `purchase`:** `supplier_id, currency, amount_before_tax, tax_amount, import_item_id`.
+- [x] جدول `supplier` (الموردون) مع `name_normalized` للمطابقة الضبابية.
+- [x] جدول `purchase_import_batch` (+ `file_hash`، عدّاد `ai_calls` للتكلفة).
+- [x] جدول `purchase_import_item` (+ `extracted_json`, `confidence`, `field_confidence`, آلة الحالات، التكرار).
+- [x] **توسعة `shop_rent`** بحقول العقد الكاملة.
+- [x] جدولا `rent_contract_import_batch` و`rent_contract_import_item`.
+- [x] جدول `ai_audit_log` لتتبّع كل تعديل/اعتماد ونتيجة معالجة.
+- [x] جدول `notifications` (Laravel) للتنبيهات داخل النظام.
+
+> ⏳ **لم تُشغَّل `php artisan migrate` بعد** — تنتظر تجهيز قاعدة البيانات المحلية (استيراد بنية الجداول القديمة `purchase`/`shop_rent`). الهجرات جاهزة وآمنة للتشغيل.
 
 ---
 
