@@ -44,6 +44,14 @@ return [
             'throw' => false,
         ],
 
+        // قرص خاص للملفات الأصلية (فواتير/عقود) — خارج public، لا يُخدم مباشرة
+        'ai_private' => [
+            'driver' => 'local',
+            'root' => storage_path('app/ai_private'),
+            'visibility' => 'private',
+            'throw' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
