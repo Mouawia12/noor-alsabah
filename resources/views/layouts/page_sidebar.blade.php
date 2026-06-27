@@ -34,6 +34,13 @@
                     @if ($unread)<span class="badge badge-danger">{{ $unread }}</span>@endif
                 </a>
             </div>
+            <div class="menu-item">
+                <a class="menu-link @if (Route::currentRouteName() == 'dashboard.analytics.index') active @endif"
+                   href="{{ route('dashboard.analytics.index') }}">
+                    <span class="menu-icon"><i class="fas fa-chart-line text-dark"></i></span>
+                    <span class="menu-title text-dark">التحليلات والتنبؤات الذكية</span>
+                </a>
+            </div>
             <?php       if(Perm::get_controll_access(1)){?>
             <div data-kt-menu-trigger="click"
                  class="menu-item menu-accordion @if (Route::currentRouteName() == 'dashboard.emps.index' || Route::currentRouteName() == 'dashboard.emps.views' || Route::currentRouteName() == 'dashboard.emps.add_role'  || Route::currentRouteName() == 'dashboard.emps.view_role') hover show fs-6 fw-bold @endif">

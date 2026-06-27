@@ -15,6 +15,7 @@ use App\Http\Controllers\Dashboard\PurchaseAiController;
 use App\Http\Controllers\Dashboard\RentAiController;
 use App\Http\Controllers\Dashboard\RentAlertsController;
 use App\Http\Controllers\Dashboard\NotificationController;
+use App\Http\Controllers\Dashboard\AnalyticsController;
 use App\Http\Controllers\Dashboard\ExpenseController;
 use App\Http\Controllers\Dashboard\ConstantController;
 use App\Http\Controllers\Dashboard\MoraslatController;
@@ -342,6 +343,9 @@ Route::group([
         // ===== لوحة متابعة الإيجارات والتنبيهات =====
         Route::get('/rent/alerts', [RentAlertsController::class, 'index'])->name('rent.alerts.index');
         Route::post('/rent/alerts/pay/{rentpay}', [RentAlertsController::class, 'markPaid'])->name('rent.alerts.pay');
+
+        // ===== التحليلات والتنبؤات الذكية =====
+        Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
 
         // ===== الإشعارات داخل النظام =====
         Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
