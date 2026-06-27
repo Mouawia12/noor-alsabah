@@ -631,6 +631,22 @@
                                     <span class="menu-title">  إضافة مصاريف شراء محلات</span>
                                 </a>
                             </div>
+                            <div class="menu-item">
+                                <a class="menu-link" href="{{ route('dashboard.purchase.ai.index') }}">
+                                    <span class="menu-bullet">
+                                        <span class="bullet bullet-dot"></span>
+                                    </span>
+                                    <span class="menu-title">استيراد الفواتير بالذكاء الاصطناعي</span>
+                                </a>
+                            </div>
+                            <div class="menu-item">
+                                <a class="menu-link" href="{{ route('dashboard.purchase.ai.review') }}">
+                                    <span class="menu-bullet">
+                                        <span class="bullet bullet-dot"></span>
+                                    </span>
+                                    <span class="menu-title">مراجعة الفواتير المستخرجة</span>
+                                </a>
+                            </div>
                             <?php } ?>
                             <?php if( Perm::get_function_access(56) || Perm::get_function_access(57) || Perm::get_function_access(58)){?>
                             <div class="menu-item">
