@@ -31,41 +31,17 @@
     </div>
 
     <div class="row g-5">
-        {{-- التدفق النقدي المتوقّع --}}
         <div class="col-lg-7">
             <div class="card mb-5">
                 <div class="card-header"><h3 class="card-title">التدفق النقدي المتوقّع — 12 شهراً</h3></div>
-                <div class="card-body">
-                    @foreach ($cashFlow as $r)
-                        <div class="d-flex align-items-center mb-3">
-                            <div style="width:80px" class="text-muted fs-7">{{ $r['month'] }}</div>
-                            <div class="flex-grow-1 mx-2">
-                                <div class="bg-light-success rounded" style="height:18px; width: {{ max(2, round($r['amount'] / $maxCash * 100)) }}%"></div>
-                            </div>
-                            <div style="width:110px" class="text-end fw-bold">{{ number_format($r['amount'], 0) }}</div>
-                        </div>
-                    @endforeach
-                </div>
+                <div class="card-body"><div id="cashFlowChart" style="min-height:300px"></div></div>
             </div>
-
-            {{-- اتجاه المشتريات --}}
             <div class="card">
                 <div class="card-header"><h3 class="card-title">اتجاه المشتريات — 12 شهراً</h3></div>
-                <div class="card-body">
-                    @foreach ($purchaseTrend as $r)
-                        <div class="d-flex align-items-center mb-3">
-                            <div style="width:80px" class="text-muted fs-7">{{ $r['month'] }}</div>
-                            <div class="flex-grow-1 mx-2">
-                                <div class="bg-light-primary rounded" style="height:18px; width: {{ max(2, round($r['amount'] / $maxPur * 100)) }}%"></div>
-                            </div>
-                            <div style="width:110px" class="text-end fw-bold">{{ number_format($r['amount'], 0) }}</div>
-                        </div>
-                    @endforeach
-                </div>
+                <div class="card-body"><div id="purchaseChart" style="min-height:300px"></div></div>
             </div>
         </div>
 
-        {{-- العقود عالية المخاطر --}}
         <div class="col-lg-5">
             <div class="card">
                 <div class="card-header"><h3 class="card-title text-danger">محلات عالية المخاطر (تأخّر متكرّر)</h3></div>
@@ -89,4 +65,32 @@
         </div>
     </div>
 
+@endsection
+
+@section('scripts')
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script>
+(function () {
+    const cash = @json($cashFlow);
+    const purch = @json($purchaseTrend);
+
+    function bar(el, data, color, name) {
+        if (!window.ApexCharts || !document.querySelector(el)) return;
+        new ApexCharts(document.querySelector(el), {
+            chart: { type: 'bar', height: 300, fontFamily: 'inherit', toolbar: { show: false } },
+            series: [{ name: name, data: data.map(r => Math.round(r.amount)) }],
+            xaxis: { categories: data.map(r => r.month) },
+            colors: [color],
+            plotOptions: { bar: { borderRadius: 4, columnWidth: '55%' } },
+            dataLabels: { enabled: false },
+            grid: { strokeDashArray: 4 }
+        }).render();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        bar('#cashFlowChart', cash, '#50cd89', 'التدفق المتوقّع');
+        bar('#purchaseChart', purch, '#009ef7', 'المشتريات');
+    });
+})();
+</script>
 @endsection
