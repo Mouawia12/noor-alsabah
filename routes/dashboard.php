@@ -319,8 +319,12 @@ Route::group([
         Route::get('/purchase/ai/review', [PurchaseAiController::class, 'review'])->name('purchase.ai.review');
         Route::get('/purchase/ai/batch/{batch}', [PurchaseAiController::class, 'batch'])->name('purchase.ai.batch');
         Route::get('/purchase/ai/batch/{batch}/json', [PurchaseAiController::class, 'batchJson'])->name('purchase.ai.batch.json');
+        Route::get('/purchase/ai/failed', [PurchaseAiController::class, 'failed'])->name('purchase.ai.failed');
+        Route::get('/purchase/ai/reports', [PurchaseAiController::class, 'reports'])->name('purchase.ai.reports');
         Route::post('/purchase/ai/item/{item}/approve', [PurchaseAiController::class, 'approve'])->name('purchase.ai.approve');
         Route::post('/purchase/ai/item/{item}/reject', [PurchaseAiController::class, 'reject'])->name('purchase.ai.reject');
+        Route::post('/purchase/ai/item/{item}/reprocess', [PurchaseAiController::class, 'reprocess'])->name('purchase.ai.reprocess');
+        Route::post('/purchase/ai/batch/{batch}/reprocess', [PurchaseAiController::class, 'reprocessBatch'])->name('purchase.ai.batch.reprocess');
 
         // ===== استيراد عقود الإيجار بالذكاء الاصطناعي =====
         Route::get('/rent/ai', [RentAiController::class, 'index'])->name('rent.ai.index');
@@ -328,8 +332,12 @@ Route::group([
         Route::get('/rent/ai/review', [RentAiController::class, 'review'])->name('rent.ai.review');
         Route::get('/rent/ai/batch/{batch}', [RentAiController::class, 'batch'])->name('rent.ai.batch');
         Route::get('/rent/ai/batch/{batch}/json', [RentAiController::class, 'batchJson'])->name('rent.ai.batch.json');
+        Route::get('/rent/ai/failed', [RentAiController::class, 'failed'])->name('rent.ai.failed');
+        Route::get('/rent/ai/reports', [RentAiController::class, 'reports'])->name('rent.ai.reports');
         Route::post('/rent/ai/item/{item}/approve', [RentAiController::class, 'approve'])->name('rent.ai.approve');
         Route::post('/rent/ai/item/{item}/reject', [RentAiController::class, 'reject'])->name('rent.ai.reject');
+        Route::post('/rent/ai/item/{item}/reprocess', [RentAiController::class, 'reprocess'])->name('rent.ai.reprocess');
+        Route::post('/rent/ai/batch/{batch}/reprocess', [RentAiController::class, 'reprocessBatch'])->name('rent.ai.batch.reprocess');
 
         // ===== لوحة متابعة الإيجارات والتنبيهات =====
         Route::get('/rent/alerts', [RentAlertsController::class, 'index'])->name('rent.alerts.index');

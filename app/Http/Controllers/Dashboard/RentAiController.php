@@ -92,6 +92,57 @@ class RentAiController extends Controller
         return view('dashboard.rent.ai.review', compact('page_title', 'items', 'shops'));
     }
 
+    public function failed()
+    {
+        $page_title = 'العقود غير المعالجة';
+        $items = RentContractImportItem::with('batch')
+            ->where('status', RentContractImportItem::STATUS_FAILED)
+            ->latest()->paginate(20);
+        $failedBatches = RentContractImportBatch::where('status', RentContractImportBatch::STATUS_FAILED)->latest()->get();
+
+        return view('dashboard.rent.ai.failed', compact('page_title', 'items', 'failedBatches'));
+    }
+
+    public function reprocess(RentContractImportItem $item)
+    {
+        $item->update(['status' => RentContractImportItem::STATUS_PENDING, 'error_reason' => null]);
+        \App\Jobs\ProcessRentContractItemJob::dispatch($item->id);
+
+        return back()->with('alert.success', 'أُعيدت جدولة معالجة العقد.');
+    }
+
+    public function reprocessBatch(RentContractImportBatch $batch)
+    {
+        $batch->items()->delete();
+        $batch->update(['status' => RentContractImportBatch::STATUS_PENDING, 'error_reason' => null, 'total_items' => 0, 'processed_items' => 0, 'failed_items' => 0]);
+        \App\Jobs\ProcessRentContractBatchJob::dispatch($batch->id);
+
+        return back()->with('alert.success', 'أُعيدت جدولة معالجة الدفعة.');
+    }
+
+    public function reports()
+    {
+        $page_title = 'تقارير وإحصائيات الإيجارات';
+        $today = now()->toDateString();
+
+        $byStatus = RentContractImportItem::selectRaw('status, count(*) c')->groupBy('status')->pluck('c', 'status');
+
+        $stats = [
+            'batches'        => RentContractImportBatch::count(),
+            'items'          => RentContractImportItem::count(),
+            'approved'       => (int) ($byStatus['approved'] ?? 0),
+            'needs_review'   => (int) ($byStatus['needs_review'] ?? 0),
+            'failed'         => (int) ($byStatus['failed'] ?? 0),
+            'contracts'      => DB::table('shop_rent')->whereNotNull('import_item_id')->count(),
+            'active'         => DB::table('shop_rent')->whereNotNull('end_date')->where('end_date', '>=', $today)->count(),
+            'expired'        => DB::table('shop_rent')->whereNotNull('end_date')->where('end_date', '<', $today)->count(),
+            'payments'       => DB::table('shop_rentpay')->count(),
+            'unpaid_amount'  => DB::table('shop_rentpay')->where('is_paid', 0)->sum('rentpay_price'),
+        ];
+
+        return view('dashboard.rent.ai.reports', compact('page_title', 'stats'));
+    }
+
     public function approve(Request $request, RentContractImportItem $item)
     {
         $request->validate(['shop_id' => ['required']], ['shop_id.required' => 'يجب اختيار المحل/العقار المرتبط بالعقد.']);

@@ -353,6 +353,20 @@
                             <span class="menu-title text-dark">لوحة متابعة الإيجارات والتنبيهات</span>
                         </a>
                     </div>
+                    <div class="menu-item">
+                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.rent.ai.failed') active @endif"
+                           href="{{ route('dashboard.rent.ai.failed') }}">
+                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                            <span class="menu-title text-dark">العقود غير المعالجة</span>
+                        </a>
+                    </div>
+                    <div class="menu-item">
+                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.rent.ai.reports') active @endif"
+                           href="{{ route('dashboard.rent.ai.reports') }}">
+                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                            <span class="menu-title text-dark">تقارير الإيجارات الذكية</span>
+                        </a>
+                    </div>
 
                 </div>
             </div>
@@ -675,6 +689,18 @@
                                         <span class="bullet bullet-dot"></span>
                                     </span>
                                     <span class="menu-title">مراجعة الفواتير المستخرجة</span>
+                                </a>
+                            </div>
+                            <div class="menu-item">
+                                <a class="menu-link" href="{{ route('dashboard.purchase.ai.failed') }}">
+                                    <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                                    <span class="menu-title">الفواتير غير المعالجة</span>
+                                </a>
+                            </div>
+                            <div class="menu-item">
+                                <a class="menu-link" href="{{ route('dashboard.purchase.ai.reports') }}">
+                                    <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                                    <span class="menu-title">تقارير المشتريات الذكية</span>
                                 </a>
                             </div>
                             <?php } ?>

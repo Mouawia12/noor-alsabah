@@ -98,6 +98,69 @@ class PurchaseAiController extends Controller
         return view('dashboard.purchase.ai.review', compact('page_title', 'items'));
     }
 
+    /** العناصر الفاشلة + إعادة المعالجة. */
+    public function failed()
+    {
+        $page_title = 'الفواتير غير المعالجة';
+        $items = PurchaseImportItem::with('batch')
+            ->where('status', PurchaseImportItem::STATUS_FAILED)
+            ->latest()->paginate(20);
+        $failedBatches = PurchaseImportBatch::where('status', PurchaseImportBatch::STATUS_FAILED)->latest()->get();
+
+        return view('dashboard.purchase.ai.failed', compact('page_title', 'items', 'failedBatches'));
+    }
+
+    /** إعادة معالجة عنصر فاشل. */
+    public function reprocess(PurchaseImportItem $item)
+    {
+        $item->update(['status' => PurchaseImportItem::STATUS_PENDING, 'error_reason' => null]);
+        \App\Jobs\ProcessPurchaseItemJob::dispatch($item->id);
+
+        return back()->with('alert.success', 'أُعيدت جدولة معالجة الفاتورة.');
+    }
+
+    /** إعادة معالجة دفعة فاشلة بالكامل. */
+    public function reprocessBatch(PurchaseImportBatch $batch)
+    {
+        $batch->items()->delete();
+        $batch->update(['status' => PurchaseImportBatch::STATUS_PENDING, 'error_reason' => null, 'total_items' => 0, 'processed_items' => 0, 'failed_items' => 0]);
+        \App\Jobs\ProcessPurchaseBatchJob::dispatch($batch->id);
+
+        return back()->with('alert.success', 'أُعيدت جدولة معالجة الدفعة.');
+    }
+
+    /** تقارير وإحصائيات المعالجة. */
+    public function reports()
+    {
+        $page_title = 'تقارير وإحصائيات المشتريات';
+
+        $byStatus = PurchaseImportItem::selectRaw('status, count(*) c')->groupBy('status')->pluck('c', 'status');
+        $approved = (int) ($byStatus['approved'] ?? 0);
+        $rejected = (int) ($byStatus['rejected'] ?? 0);
+        $failed   = (int) ($byStatus['failed'] ?? 0);
+        $reviewed = $approved + $rejected;
+        $successRate = $reviewed > 0 ? round($approved / $reviewed * 100) : 0;
+
+        $stats = [
+            'batches'      => PurchaseImportBatch::count(),
+            'items'        => PurchaseImportItem::count(),
+            'approved'     => $approved,
+            'rejected'     => $rejected,
+            'failed'       => $failed,
+            'needs_review' => (int) ($byStatus['needs_review'] ?? 0),
+            'success_rate' => $successRate,
+            'total_amount' => DB::table('purchase')->whereNotNull('import_item_id')->sum('purchase_price'),
+        ];
+
+        $topSuppliers = DB::table('purchase as p')
+            ->leftJoin('supplier as s', 's.supplier_id', '=', 'p.supplier_id')
+            ->whereNotNull('p.import_item_id')
+            ->selectRaw('COALESCE(s.name, "غير محدد") as name, count(*) c, SUM(p.purchase_price) total')
+            ->groupBy('s.name')->orderByDesc('c')->limit(5)->get();
+
+        return view('dashboard.purchase.ai.reports', compact('page_title', 'stats', 'topSuppliers'));
+    }
+
     /** اعتماد عنصر وإنشاء سجل مشتريات. */
     public function approve(Request $request, PurchaseImportItem $item)
     {
