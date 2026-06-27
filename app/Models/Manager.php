@@ -31,15 +31,18 @@ class Manager extends Model
         $resultCount = 50;
         $end = ($page - 1) * $resultCount;
         $start = $end + $resultCount;
+        $bind = [];
         $sql = "SELECT manager_name as name, manager_id as id_no,manager_id as id
         from  manager where  1=1  ";
         if ($string != "") {
-            $sql = $sql . " and ( manager_name LIKE '%$string%' or ssn LIKE '$string%')    ";
+            $sql = $sql . " and ( manager_name LIKE ? or ssn LIKE ?)    ";
+            $bind[] = "%$string%";
+            $bind[] = "$string%";
         }
-        $sql = $sql . " order by manager_id  desc LIMIT {$end}, {$start} ";
-        $results = DB::select($sql);
-        $count_rs_chk = count(DB::select($sql));
-        $users = DB::select($sql);
+        $sql = $sql . " order by manager_id  desc LIMIT " . (int) $end . ", " . (int) $start . " ";
+        $results = DB::select($sql, $bind);
+        $count_rs_chk = count(DB::select($sql, $bind));
+        $users = DB::select($sql, $bind);
         $users = json_decode(json_encode($users), true);
         $data = array();
         foreach ($users as $user) {
@@ -198,15 +201,18 @@ class Manager extends Model
     {
         $manager_name = TRIM($manager_name);
         $manager_mobile = TRIM($manager_mobile);
+        $bind = [];
         $rs_stmt1 = " SELECT manager_id FROM  manager where  1=1  ";
         if ($manager_name != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  manager_name like '%$manager_name%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  manager_name like ? ";
+            $bind[] = "%$manager_name%";
         }
         if ($manager_mobile != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  manager_mobile like '%$manager_mobile%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  manager_mobile like ? ";
+            $bind[] = "%$manager_mobile%";
         }
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -217,9 +223,11 @@ class Manager extends Model
         $b = $_POST['start'];
         $manager_name = TRIM($manager_name);
         $manager_mobile = TRIM($manager_mobile);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            // أمن: فهرس العمود عدد صحيح، واتجاه الفرز قائمة بيضاء (نفس المنطق السابق)
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -234,15 +242,17 @@ class Manager extends Model
             left join  users u on m.create_user=u.id
             where  1=1 ";
         if ($manager_name != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  m.manager_name like '%$manager_name%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  m.manager_name like ? ";
+            $bind[] = "%$manager_name%";
         }
         if ($manager_mobile != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  m.manager_mobile like '%$manager_mobile%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  m.manager_mobile like ? ";
+            $bind[] = "%$manager_mobile%";
         }
 
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
         return $results;
     }
 

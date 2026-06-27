@@ -27,15 +27,17 @@ class Violation extends Model
     public function scopeserachhistorycount($query, $violation_id)
     {
         $violation_id = TRIM($violation_id);
+        $bind = [];
         $rs_stmt1 = " SELECT vh.violation_history_id   FROM  violation_history vh
 
 
          where   1=1  ";
         if ($violation_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  vh.violation_id = '$violation_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  vh.violation_id = ? ";
+            $bind[] = $violation_id;
         }
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -45,9 +47,10 @@ class Violation extends Model
         $a = $_POST['length'];
         $b = $_POST['start'];
         $violation_id = TRIM($violation_id);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -62,17 +65,19 @@ class Violation extends Model
 
                     where    1=1 ";
         if ($violation_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  vh.violation_id = '$violation_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  vh.violation_id = ? ";
+            $bind[] = $violation_id;
         }
 
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
         return $results;
     }
 
     public function scopesumspendcounthome($query, $violation_month_m, $violation_month_y)
     {
+        $bind = [];
         $rs_stmt1 = " SELECT
  p.violation_month_y,p.violation_month_m,
  cd.calculate_month_val as c1,
@@ -87,24 +92,26 @@ class Violation extends Model
        ";
         if(  $this->emp_job!=1){
             $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
         if(  $this->emp_job!=1){
             if (Perm::get_function_access(75)) {
-                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = " . (int) $this->user_id . " ";
             }
         }
 
 
         if ($violation_month_y != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.violation_month_y = '$violation_month_y' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.violation_month_y = ? ";
+            $bind[] = $violation_month_y;
         }
 
         if ($violation_month_m != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.violation_month_m = '$violation_month_m' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.violation_month_m = ? ";
+            $bind[] = $violation_month_m;
         }
 
 if($violation_month_m!=''){
@@ -115,7 +122,7 @@ else{
 }
 
 
-        $results = DB::select($rs_stmt1);
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }
@@ -139,6 +146,8 @@ else{
         $municip_no = TRIM($municip_no);
         $shop_respon = TRIM($shop_respon);
 
+        $bind = [];
+
         $rs_stmt1 = " SELECT sum(p.violation_val) as violation_val_all_pay,
 SUM(CASE WHEN p.violation_ispay = 1  THEN p.violation_val END) AS `violation_val_pay`,
 SUM(CASE WHEN p.violation_ispay = 0  THEN p.violation_val END) AS `violation_val_not_pay`
@@ -148,43 +157,53 @@ left join  manager m on s.manager_id=m.manager_id
        ";
         if(  $this->emp_job!=1){
             $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
         if ($violation_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.violation_id = '$violation_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.violation_id = ? ";
+            $bind[] = $violation_id;
         }
 if ($violation_month_y != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  year(p.violation_dt) = '$violation_month_y ' ";
+    $rs_stmt1 = $rs_stmt1 . " and  year(p.violation_dt) = ? ";
+    $bind[] = $violation_month_y;
 }
 
 if ($violation_month_m != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  month(p.violation_dt) = '$violation_month_m ' ";
+    $rs_stmt1 = $rs_stmt1 . " and  month(p.violation_dt) = ? ";
+    $bind[] = $violation_month_m;
 }
 if ($violation_no != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  p.violation_no = '$violation_no' ";
+    $rs_stmt1 = $rs_stmt1 . " and  p.violation_no = ? ";
+    $bind[] = $violation_no;
 }
 if ($violation_ispay != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  p.violation_ispay = '$violation_ispay' ";
+    $rs_stmt1 = $rs_stmt1 . " and  p.violation_ispay = ? ";
+    $bind[] = $violation_ispay;
 }
 if ($shop_id != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = '$shop_id' ";
+    $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = ? ";
+    $bind[] = $shop_id;
 }
 if ($manager_id != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  s.manager_id = '$manager_id' ";
+    $rs_stmt1 = $rs_stmt1 . " and  s.manager_id = ? ";
+    $bind[] = $manager_id;
 }
 if ($comme_no != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  s.comme_no = '$comme_no' ";
+    $rs_stmt1 = $rs_stmt1 . " and  s.comme_no = ? ";
+    $bind[] = $comme_no;
 }
 if ($municip_no != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  s.municip_no = '$municip_no' ";
+    $rs_stmt1 = $rs_stmt1 . " and  s.municip_no = ? ";
+    $bind[] = $municip_no;
 }
 if ($shop_respon != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  s.shop_respon = '$shop_respon' ";
+    $rs_stmt1 = $rs_stmt1 . " and  s.shop_respon = ? ";
+    $bind[] = $shop_respon;
 }
-        $results = DB::select($rs_stmt1);
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }
@@ -204,6 +223,7 @@ if ($shop_respon != "") {
         $municip_no = TRIM($municip_no);
         $shop_respon = TRIM($shop_respon);
 
+        $bind = [];
 
         $rs_stmt1 = " SELECT p.violation_id FROM   violation p left join  shop s on p.shop_id=s.shop_id
 left join  manager m on s.manager_id=m.manager_id
@@ -211,43 +231,52 @@ left join  manager m on s.manager_id=m.manager_id
 
 if(  $this->emp_job!=1){
     $rs_stmt1 = $rs_stmt1 . "
-join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
 }
 $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
 
 if ($violation_month_y != "") {
-$rs_stmt1 = $rs_stmt1 . " and  year(p.violation_dt) = '$violation_month_y ' ";
+$rs_stmt1 = $rs_stmt1 . " and  year(p.violation_dt) = ? ";
+$bind[] = $violation_month_y;
 }
 
 if ($violation_month_m != "") {
-$rs_stmt1 = $rs_stmt1 . " and  month(p.violation_dt) = '$violation_month_m ' ";
+$rs_stmt1 = $rs_stmt1 . " and  month(p.violation_dt) = ? ";
+$bind[] = $violation_month_m;
 }
 if ($violation_no != "") {
-$rs_stmt1 = $rs_stmt1 . " and  p.violation_no = '$violation_no' ";
+$rs_stmt1 = $rs_stmt1 . " and  p.violation_no = ? ";
+$bind[] = $violation_no;
 }
 if ($violation_ispay != "") {
-$rs_stmt1 = $rs_stmt1 . " and  p.violation_ispay = '$violation_ispay' ";
+$rs_stmt1 = $rs_stmt1 . " and  p.violation_ispay = ? ";
+$bind[] = $violation_ispay;
 }
 if ($shop_id != "") {
-$rs_stmt1 = $rs_stmt1 . " and  p.shop_id = '$shop_id' ";
+$rs_stmt1 = $rs_stmt1 . " and  p.shop_id = ? ";
+$bind[] = $shop_id;
 }
 if ($manager_id != "") {
-$rs_stmt1 = $rs_stmt1 . " and  s.manager_id = '$manager_id' ";
+$rs_stmt1 = $rs_stmt1 . " and  s.manager_id = ? ";
+$bind[] = $manager_id;
 }
 if ($comme_no != "") {
-$rs_stmt1 = $rs_stmt1 . " and  s.comme_no = '$comme_no' ";
+$rs_stmt1 = $rs_stmt1 . " and  s.comme_no = ? ";
+$bind[] = $comme_no;
 }
 if ($municip_no != "") {
-$rs_stmt1 = $rs_stmt1 . " and  s.municip_no = '$municip_no' ";
+$rs_stmt1 = $rs_stmt1 . " and  s.municip_no = ? ";
+$bind[] = $municip_no;
 }
 if ($shop_respon != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  s.shop_respon like '%$shop_respon%' ";
+    $rs_stmt1 = $rs_stmt1 . " and  s.shop_respon like ? ";
+    $bind[] = "%$shop_respon%";
 }
 $rs_stmt1 = $rs_stmt1 . "    group by p.violation_id ";
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
     public function scopeserachspenddatarep($query,$violation_id,$violation_month_m, $violation_month_y, $shop_id,$manager_id,$violation_no,$violation_ispay,
@@ -262,6 +291,7 @@ $rs_stmt1 = $rs_stmt1 . "    group by p.violation_id ";
         $comme_no = TRIM($comme_no);
         $municip_no = TRIM($municip_no);
         $shop_respon = TRIM($shop_respon);
+        $bind = [];
         $rs_stmt1 = " SELECT p.*,s.shop_name,u.name,m.manager_name,v.violation_side_name,s.shop_mobile,sc.comme_no,sm.municip_no,s.shop_respon,s.shop_location
          FROM   violation p
          left join  shop s on p.shop_id=s.shop_id
@@ -273,43 +303,52 @@ left join  shop_comme sc on s.shop_id=sc.shop_id
          ";
 if(  $this->emp_job!=1){
     $rs_stmt1 = $rs_stmt1 . "
-join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
 }
 $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 if ($violation_month_y != "") {
-$rs_stmt1 = $rs_stmt1 . " and  year(p.violation_dt) = '$violation_month_y ' ";
+$rs_stmt1 = $rs_stmt1 . " and  year(p.violation_dt) = ? ";
+$bind[] = $violation_month_y;
 }
 
 if ($violation_month_m != "") {
-$rs_stmt1 = $rs_stmt1 . " and  month(p.violation_dt) = '$violation_month_m ' ";
+$rs_stmt1 = $rs_stmt1 . " and  month(p.violation_dt) = ? ";
+$bind[] = $violation_month_m;
 }
 if ($violation_no != "") {
-$rs_stmt1 = $rs_stmt1 . " and  p.violation_no = '$violation_no' ";
+$rs_stmt1 = $rs_stmt1 . " and  p.violation_no = ? ";
+$bind[] = $violation_no;
 }
 if ($violation_ispay != "") {
-$rs_stmt1 = $rs_stmt1 . " and  p.violation_ispay = '$violation_ispay' ";
+$rs_stmt1 = $rs_stmt1 . " and  p.violation_ispay = ? ";
+$bind[] = $violation_ispay;
 }
 if ($shop_id != "") {
-$rs_stmt1 = $rs_stmt1 . " and  p.shop_id = '$shop_id' ";
+$rs_stmt1 = $rs_stmt1 . " and  p.shop_id = ? ";
+$bind[] = $shop_id;
 }
 if ($manager_id != "") {
-$rs_stmt1 = $rs_stmt1 . " and  s.manager_id = '$manager_id' ";
+$rs_stmt1 = $rs_stmt1 . " and  s.manager_id = ? ";
+$bind[] = $manager_id;
 }
 if ($comme_no != "") {
-$rs_stmt1 = $rs_stmt1 . " and  s.comme_no = '$comme_no' ";
+$rs_stmt1 = $rs_stmt1 . " and  s.comme_no = ? ";
+$bind[] = $comme_no;
 }
 if ($municip_no != "") {
-$rs_stmt1 = $rs_stmt1 . " and  s.municip_no = '$municip_no' ";
+$rs_stmt1 = $rs_stmt1 . " and  s.municip_no = ? ";
+$bind[] = $municip_no;
 }
 if ($shop_respon != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  s.shop_respon like '%$shop_respon%' ";
+    $rs_stmt1 = $rs_stmt1 . " and  s.shop_respon like ? ";
+    $bind[] = "%$shop_respon%";
 }
 $rs_stmt1 = $rs_stmt1 . "    group by p.violation_id ";
 
 
 
-        $results = DB::select($rs_stmt1);
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }
@@ -328,9 +367,10 @@ $rs_stmt1 = $rs_stmt1 . "    group by p.violation_id ";
         $comme_no = TRIM($comme_no);
         $municip_no = TRIM($municip_no);
         $shop_respon = TRIM($shop_respon);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -353,48 +393,57 @@ left join  shop_comme sc on s.shop_id=sc.shop_id
           ";
      if(  $this->emp_job!=1){
         $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
     }
     $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
 
     if ($violation_month_y != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  year(p.violation_dt) = '$violation_month_y ' ";
+    $rs_stmt1 = $rs_stmt1 . " and  year(p.violation_dt) = ? ";
+    $bind[] = $violation_month_y;
     }
 
     if ($violation_month_m != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  month(p.violation_dt) = '$violation_month_m ' ";
+    $rs_stmt1 = $rs_stmt1 . " and  month(p.violation_dt) = ? ";
+    $bind[] = $violation_month_m;
     }
     if ($violation_no != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  p.violation_no = '$violation_no' ";
+    $rs_stmt1 = $rs_stmt1 . " and  p.violation_no = ? ";
+    $bind[] = $violation_no;
     }
     if ($violation_ispay != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  p.violation_ispay = '$violation_ispay' ";
+    $rs_stmt1 = $rs_stmt1 . " and  p.violation_ispay = ? ";
+    $bind[] = $violation_ispay;
     }
     if ($shop_id != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = '$shop_id' ";
+    $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = ? ";
+    $bind[] = $shop_id;
     }
     if ($manager_id != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  s.manager_id = '$manager_id' ";
+    $rs_stmt1 = $rs_stmt1 . " and  s.manager_id = ? ";
+    $bind[] = $manager_id;
     }
     if ($comme_no != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  s.comme_no = '$comme_no' ";
+    $rs_stmt1 = $rs_stmt1 . " and  s.comme_no = ? ";
+    $bind[] = $comme_no;
     }
     if ($municip_no != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  s.municip_no = '$municip_no' ";
+    $rs_stmt1 = $rs_stmt1 . " and  s.municip_no = ? ";
+    $bind[] = $municip_no;
     }
     if ($shop_respon != "") {
-        $rs_stmt1 = $rs_stmt1 . " and  s.shop_respon like '%$shop_respon%' ";
+        $rs_stmt1 = $rs_stmt1 . " and  s.shop_respon like ? ";
+        $bind[] = "%$shop_respon%";
     }
 
         $rs_stmt1 = $rs_stmt1 . "    group by p.violation_id ";
 
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . "    limit $b,$a ";
+        $rs_stmt1 = $rs_stmt1 . "    limit " . (int) $b . "," . (int) $a . " ";
 
 
-        $results = DB::select($rs_stmt1);
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }
@@ -402,28 +451,30 @@ left join  shop_comme sc on s.shop_id=sc.shop_id
     public function scopeserachspendcountdet($query, $calculate_id)
     {
         $calculate_id = TRIM($calculate_id);
+        $bind = [];
         $rs_stmt1 = " SELECT p.calculate_id
  FROM   calculate p
           join  shop s on p.shop_id=s.shop_id
 ";
         if(  $this->emp_job!=1){
             $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
         if(  $this->emp_job!=1){
             if (Perm::get_function_access(75)) {
-                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = " . (int) $this->user_id . " ";
             }
         }
         if ($calculate_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  calculate_id = '$calculate_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  calculate_id = ? ";
+            $bind[] = $calculate_id;
         }
 
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -433,9 +484,10 @@ left join  shop_comme sc on s.shop_id=sc.shop_id
         $a = $_POST['length'];
         $b = $_POST['start'];
         $calculate_id = TRIM($calculate_id);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -470,23 +522,24 @@ left join  shop_comme sc on s.shop_id=sc.shop_id
  ";
         if(  $this->emp_job!=1){
             $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on sh.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on sh.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
         if(  $this->emp_job!=1){
             if (Perm::get_function_access(75)) {
-                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = " . (int) $this->user_id . " ";
             }
         }
         if ($calculate_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_id = '$calculate_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_id = ? ";
+            $bind[] = $calculate_id;
         }
 
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . " ORDER BY cd.calculate_detail_id desc limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . " ORDER BY cd.calculate_detail_id desc limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }

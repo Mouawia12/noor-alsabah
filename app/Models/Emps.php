@@ -18,6 +18,17 @@ class Emps extends Model
     // public $incrementing = false;
 //protected $dateFormat = 'U';
 
+    /**
+     * أمن: تعقيم قائمة أعداد صحيحة تُستخدم داخل IN(...) — تحافظ على نفس القيم
+     * (رموز فئات 1..4) وتمنع حقن SQL. تُرجع "0" لو كانت القائمة فارغة لتفادي IN().
+     */
+    private static function intInList($list)
+    {
+        $parts = array_filter(array_map('trim', explode(',', (string) $list)), 'strlen');
+        $ints = array_map('intval', $parts);
+        return count($ints) ? implode(',', $ints) : '0';
+    }
+
 
     public function scopeOfType($query, $type)
     {
@@ -30,26 +41,29 @@ class Emps extends Model
         $resultCount = 50;
         $end = ($page - 1) * $resultCount;
         $start = $end + $resultCount;
+        $bind = [];
         $sql = "SELECT name as name, id as id_no,id as id
         from users where  1=1  ";
         if ($string != "") {
-            $sql = $sql . " and ( name LIKE '%$string%' or id LIKE '$string%')    ";
+            $sql = $sql . " and ( name LIKE ? or id LIKE ?)    ";
+            $bind[] = "%$string%";
+            $bind[] = "$string%";
         }
         //  echo $sql;
-        $sql = $sql . " order by id  desc LIMIT {$end}, {$start} ";
+        $sql = $sql . " order by id  desc LIMIT " . (int) $end . ", " . (int) $start . " ";
         //   $results = DB::select($sql);
-        $results = DB::select($sql);
+        $results = DB::select($sql, $bind);
 
 
         //  dd($results);
 
         //$count_rs_chk = count(DB::select($sql) );
 
-        $count_rs_chk = count(DB::select($sql));
+        $count_rs_chk = count(DB::select($sql, $bind));
 
 
         //$users=DB::select($sql);
-        $users = DB::select($sql);
+        $users = DB::select($sql, $bind);
 
         $users = json_decode(json_encode($users), true);
 
@@ -71,25 +85,28 @@ class Emps extends Model
         $resultCount = 50;
         $end = ($page - 1) * $resultCount;
         $start = $end + $resultCount;
+        $bind = [];
         $sql = "SELECT emp_name as name, job_num as id_no,id as id
-            from users where  1=1 and emp_job not in ($job,1)  ";
+            from users where  1=1 and emp_job not in (" . self::intInList($job) . ",1)  ";
         if ($string != "") {
-            $sql = $sql . " and ( emp_name LIKE '%$string%' or job_num LIKE '$string%')    ";
+            $sql = $sql . " and ( emp_name LIKE ? or job_num LIKE ?)    ";
+            $bind[] = "%$string%";
+            $bind[] = "$string%";
         }
-        $sql = $sql . " order by id  desc LIMIT {$end}, {$start} ";
+        $sql = $sql . " order by id  desc LIMIT " . (int) $end . ", " . (int) $start . " ";
         // $result = $this->db->query($sql);
         // $count_rs_chk= $result->num_rows();
-        $result = DB::select($sql);
+        $result = DB::select($sql, $bind);
         // dd($result);
         // $count_rs_chk= $result->num_rows();
-        $count_rs_chk = count(DB::select($sql));
+        $count_rs_chk = count(DB::select($sql, $bind));
 
         // return  $results;
 
         //   $users=DB::select($sql)->result_array();
 
 
-        $users = DB::select($sql);
+        $users = DB::select($sql, $bind);
         $users = json_decode(json_encode($users), true);
 
         //  $users = DB::select($sql)->get();
@@ -213,21 +230,26 @@ class Emps extends Model
 
     public function scopeserachspendcount($query, $worker_name, $sex, $phone, $email)
     {
+        $bind = [];
         $rs_stmt1 = " SELECT worker_id FROM  emps where  1=1  ";
         if ($worker_name != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  worker_name like '%$worker_name%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  worker_name like ? ";
+            $bind[] = "%$worker_name%";
         }
 
         if ($sex != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sex = '$sex ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sex = ? ";
+            $bind[] = $sex;
         }
 
         if ($phone != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  phone = '$phone ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  phone = ? ";
+            $bind[] = $phone;
         }
 
         if ($email != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  email = '$email ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  email = ? ";
+            $bind[] = $email;
         }
 
         /*
@@ -243,7 +265,7 @@ class Emps extends Model
         $rs_stmt1 = $rs_stmt1 . " order by exchange_id desc   ";
         $rs1 = $this->db->query($rs_stmt1);*/
 // $results = DB::query( $rs_stmt1 );
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
 
         return $results;
 
@@ -253,26 +275,31 @@ class Emps extends Model
 
     public function scopeserachspenddata($query, $worker_name, $sex, $phone, $email)
     {
+        $bind = [];
         $rs_stmt1 = " SELECT users.*,job_cat.j_c_name_ar FROM  users
         left join  job_cat  on  users.emp_job =job_cat.j_c_id
 
         where  1=1  ";
         if ($worker_name != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  users.worker_name like '%$worker_name%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  users.worker_name like ? ";
+            $bind[] = "%$worker_name%";
         }
 
         if ($sex != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  users.sex = '$sex ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  users.sex = ? ";
+            $bind[] = $sex;
         }
 
         if ($phone != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  users.phone = '$phone ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  users.phone = ? ";
+            $bind[] = $phone;
         }
 
         if ($email != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  users.email = '$email ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  users.email = ? ";
+            $bind[] = $email;
         }
-        $results = DB::select($rs_stmt1);
+        $results = DB::select($rs_stmt1, $bind);
         return $results;
     }
 

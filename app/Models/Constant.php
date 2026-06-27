@@ -30,15 +30,18 @@ class Constant extends Model
         $resultCount = 50;
         $end = ($page - 1) * $resultCount;
         $start = $end + $resultCount;
+        $bind = [];
         $sql = "SELECT constant_name as name, constant_id as id_no,constant_id as id,constant_respon
         from  constant where  1=1  ";
         if ($string != "") {
-            $sql = $sql . " and ( constant_name LIKE '%$string%' or ssn LIKE '$string%')    ";
+            $sql = $sql . " and ( constant_name LIKE ? or ssn LIKE ?)    ";
+            $bind[] = "%$string%";
+            $bind[] = "$string%";
         }
-        $sql = $sql . " order by constant_id  desc LIMIT {$end}, {$start} ";
-        $results = DB::select($sql);
-        $count_rs_chk = count(DB::select($sql));
-        $users = DB::select($sql);
+        $sql = $sql . " order by constant_id  desc LIMIT " . (int) $end . ", " . (int) $start . " ";
+        $results = DB::select($sql, $bind);
+        $count_rs_chk = count(DB::select($sql, $bind));
+        $users = DB::select($sql, $bind);
         $users = json_decode(json_encode($users), true);
         $data = array();
         foreach ($users as $user) {
@@ -62,34 +65,44 @@ class Constant extends Model
         $worker_id = TRIM($worker_id);
         $shop_id = TRIM($shop_id);
 
+        $bind = [];
         $rs_stmt1 = " SELECT constant_id FROM  constant where  1=1  ";
         if ($constant_type_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  constant_type_id = '$exconstant_type_idpense_no ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  constant_type_id = ? ";
+            $bind[] = $exconstant_type_idpense_no;
         }
         if ($constant_categoty_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  constant_categoty_id = '$constant_categoty_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  constant_categoty_id = ? ";
+            $bind[] = $constant_categoty_id;
         }
         if ($manager_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  manager_id = '$manager_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  manager_id = ? ";
+            $bind[] = $manager_id;
         }
         if ($worker_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  worker_id = '$worker_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  worker_id = ? ";
+            $bind[] = $worker_id;
         }
         if ($shop_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  shop_id = '$shop_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  shop_id = ? ";
+            $bind[] = $shop_id;
         }
         if ($constant_dt_from != "" and $constant_dt_to != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  constant_dt between '$constant_dt_from' and '$constant_dt_to'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  constant_dt between ? and ?  ";
+            $bind[] = $constant_dt_from;
+            $bind[] = $constant_dt_to;
         }
 
         if ($constant_dt_from != "" and $constant_dt_to = "") {
-            $rs_stmt1 = $rs_stmt1 . " and  constant_dt >= '$constant_dt_from'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  constant_dt >= ?  ";
+            $bind[] = $constant_dt_from;
         }
 
         if ($constant_dt_from == "" and $constant_dt_to != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  constant_dt <= '$constant_dt_to'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  constant_dt <= ?  ";
+            $bind[] = $constant_dt_to;
         }
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -105,9 +118,10 @@ class Constant extends Model
         $manager_id = TRIM($manager_id);
         $worker_id = TRIM($worker_id);
         $shop_id = TRIM($shop_id);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -128,34 +142,43 @@ class Constant extends Model
 
             where  1=1 ";
         if ($constant_type_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  constant_type_id = '$exconstant_type_idpense_no ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  constant_type_id = ? ";
+            $bind[] = $exconstant_type_idpense_no;
         }
         if ($constant_categoty_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  constant_categoty_id = '$constant_categoty_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  constant_categoty_id = ? ";
+            $bind[] = $constant_categoty_id;
         }
         if ($manager_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  manager_id = '$manager_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  manager_id = ? ";
+            $bind[] = $manager_id;
         }
         if ($worker_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  worker_id = '$worker_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  worker_id = ? ";
+            $bind[] = $worker_id;
         }
         if ($shop_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  shop_id = '$shop_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  shop_id = ? ";
+            $bind[] = $shop_id;
         }
         if ($constant_dt_from != "" and $constant_dt_to != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  constant_dt between '$constant_dt_from' and '$constant_dt_to'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  constant_dt between ? and ?  ";
+            $bind[] = $constant_dt_from;
+            $bind[] = $constant_dt_to;
         }
 
         if ($constant_dt_from != "" and $constant_dt_to = "") {
-            $rs_stmt1 = $rs_stmt1 . " and  constant_dt >= '$constant_dt_from'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  constant_dt >= ?  ";
+            $bind[] = $constant_dt_from;
         }
 
         if ($constant_dt_from == "" and $constant_dt_to != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  constant_dt <= '$constant_dt_to'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  constant_dt <= ?  ";
+            $bind[] = $constant_dt_to;
         }
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
         return $results;
     }
 
@@ -163,12 +186,14 @@ class Constant extends Model
     public function scopeserachremarkcount($query, $constant_id)
     {
         $constant_id = TRIM($constant_id);
+        $bind = [];
         $rs_stmt1 = " SELECT constant_note_id FROM  constant_note where is_deleted=0 and   1=1  ";
         if ($constant_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  constant_id = '$constant_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  constant_id = ? ";
+            $bind[] = $constant_id;
         }
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -178,9 +203,10 @@ class Constant extends Model
         $a = $_POST['length'];
         $b = $_POST['start'];
         $constant_id = TRIM($constant_id);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -197,12 +223,13 @@ class Constant extends Model
 
                             where sn.is_deleted=0 and   1=1 ";
         if ($constant_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sn.constant_id = '$constant_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sn.constant_id = ? ";
+            $bind[] = $constant_id;
         }
 
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
         return $results;
     }
 

@@ -70,22 +70,25 @@ class Shop extends Model
         $resultCount = 50;
         $end = ($page - 1) * $resultCount;
         $start = $end + $resultCount;
+        $bind = [];
         $sql = "SELECT shop.shop_name as name, shop.shop_id as id_no,shop.shop_id as id,shop.shop_respon,shop_municip.municip_no as municip_no
         from  shop
 
         left join shop_municip  on shop.shop_id=shop_municip.shop_id
  ";
         if ($this->emp_job != 1) {
-            $sql = $sql . "    join workers_manager wm on shop.manager_id =wm.manager_id and  wm.user_id=$this->user_id ";
+            $sql = $sql . "    join workers_manager wm on shop.manager_id =wm.manager_id and  wm.user_id=" . (int) $this->user_id . " ";
         }
         $sql = $sql . " where  1=1 ";
         if ($string != "") {
-            $sql = $sql . " and ( shop.shop_name LIKE '%$string%' or  shop_municip.municip_no LIKE '%$string%')    ";
+            $sql = $sql . " and ( shop.shop_name LIKE ? or  shop_municip.municip_no LIKE ?)    ";
+            $bind[] = "%$string%";
+            $bind[] = "%$string%";
         }
-        $sql = $sql . "group by shop.shop_id  order by shop.shop_id  desc LIMIT {$end}, {$start} ";
-        $results = DB::select($sql);
-        $count_rs_chk = count(DB::select($sql));
-        $users = DB::select($sql);
+        $sql = $sql . "group by shop.shop_id  order by shop.shop_id  desc LIMIT " . (int) $end . ", " . (int) $start . " ";
+        $results = DB::select($sql, $bind);
+        $count_rs_chk = count(DB::select($sql, $bind));
+        $users = DB::select($sql, $bind);
         $users = json_decode(json_encode($users), true);
         $data = array();
         foreach ($users as $user) {
@@ -116,14 +119,16 @@ class Shop extends Model
     public function scopeserachhistorycount($query, $shop_id)
     {
         $shop_id = TRIM($shop_id);
+        $bind = [];
         $rs_stmt1 = " SELECT nh.shop_note_history_id  FROM  shop_note_history nh
          join shop_note sn on nh.shop_note_id=sn.shop_note_id
          where   1=1  ";
         if ($shop_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sn.shop_id = '$shop_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sn.shop_id = ? ";
+            $bind[] = $shop_id;
         }
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -133,9 +138,10 @@ class Shop extends Model
         $a = $_POST['length'];
         $b = $_POST['start'];
         $shop_id = TRIM($shop_id);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -152,13 +158,14 @@ left join  note_type n on nh.note_type_id=n.note_type_id
 left join  note_type n2 on nh.old_note_type_id =n2.note_type_id
                     where    1=1 ";
         if ($shop_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sn.shop_id = '$shop_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sn.shop_id = ? ";
+            $bind[] = $shop_id;
         }
 
         $rs_stmt1 = $rs_stmt1 . $ord;
         if (isset($b) and isset($a) and $b !="" and $a!="")
-            $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+            $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
         return $results;
     }
 
@@ -176,6 +183,8 @@ left join  note_type n2 on nh.old_note_type_id =n2.note_type_id
         $municip_no = TRIM($municip_no);
         $shop_id = TRIM($shop_id);
         $rentpay_price = TRIM($rentpay_price);
+
+        $bind = [];
 
         $rs_stmt1 = " SELECT sh.*,m.manager_name,c.city_name,u.name,sherp.rentpay_dt,sherp.rentpay_price,
             sm.municip_no,sm.municip_sdt,sm.municip_edt,
@@ -237,14 +246,14 @@ left join  note_type n2 on nh.old_note_type_id =n2.note_type_id
        ";
         if ($this->emp_job != 1) {
             $rs_stmt1 = $rs_stmt1 . "
-            join workers_manager wm on sh.manager_id =wm.manager_id and  wm.user_id=$this->user_id";
+            join workers_manager wm on sh.manager_id =wm.manager_id and  wm.user_id=" . (int) $this->user_id;
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 ";
 
 
         if ($this->emp_job != 1) {
             if (Perm::get_function_access(74)) {
-                $rs_stmt1 = $rs_stmt1 . " and  sh.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  sh.create_user = " . (int) $this->user_id . " ";
             }
         }
 
@@ -258,29 +267,36 @@ left join  note_type n2 on nh.old_note_type_id =n2.note_type_id
         }
 
         if ($shop_id  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sh.shop_id = '$shop_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sh.shop_id = ? ";
+            $bind[] = $shop_id;
         }
         if ($shop_name  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sh.shop_name like '%$shop_name%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sh.shop_name like ? ";
+            $bind[] = "%$shop_name%";
         }
         if ($shop_mobile  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sh.shop_mobile like '%$shop_mobile%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sh.shop_mobile like ? ";
+            $bind[] = "%$shop_mobile%";
         }
         if ($manager_id  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sh.manager_id = '$manager_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sh.manager_id = ? ";
+            $bind[] = $manager_id;
         }
         if ($city_id  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sh.city_id = '$city_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sh.city_id = ? ";
+            $bind[] = $city_id;
         }
         if ($comme_no  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sc.comme_no = '$comme_no ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sc.comme_no = ? ";
+            $bind[] = $comme_no;
         }
         if ($municip_no  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sm.municip_no = '$municip_no ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sm.municip_no = ? ";
+            $bind[] = $municip_no;
         }
         $rs_stmt1 = $rs_stmt1 . "  group by sh.shop_id ";
 
-        $results = DB::select($rs_stmt1);
+        $results = DB::select($rs_stmt1, $bind);
         return  $results;
     }
 
@@ -305,6 +321,8 @@ left join  note_type n2 on nh.old_note_type_id =n2.note_type_id
         $municip_no = TRIM($municip_no);
         $rentpay_price = TRIM($rentpay_price);
 
+        $bind = [];
+
         $rs_stmt1 = " SELECT sh.shop_id FROM  shop sh
         left join  shop_municip sm on sh.shop_id=sm.shop_id
             left join  shop_comme sc on sh.shop_id=sc.shop_id
@@ -314,14 +332,14 @@ left join  note_type n2 on nh.old_note_type_id =n2.note_type_id
 
         if ($this->emp_job != 1) {
             $rs_stmt1 = $rs_stmt1 . "
-            join workers_manager wm on sh.manager_id =wm.manager_id and  wm.user_id=$this->user_id";
+            join workers_manager wm on sh.manager_id =wm.manager_id and  wm.user_id=" . (int) $this->user_id;
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 ";
 
 
         if ($this->emp_job != 1) {
             if (Perm::get_function_access(74)) {
-                $rs_stmt1 = $rs_stmt1 . " and  sh.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  sh.create_user = " . (int) $this->user_id . " ";
             }
         }
         if ($rentpay_price  != "") {
@@ -334,47 +352,59 @@ left join  note_type n2 on nh.old_note_type_id =n2.note_type_id
 
 
         if ($comme_month != '') {
-            $rs_stmt1 = $rs_stmt1 . " and  MONTH(sc.comme_edt) = '$comme_month ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  MONTH(sc.comme_edt) = ? ";
+            $bind[] = $comme_month;
         }
         if ($comme_year != '') {
-            $rs_stmt1 = $rs_stmt1 . " and  YEAR(sc.comme_edt) = '$comme_year  ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  YEAR(sc.comme_edt) = ? ";
+            $bind[] = $comme_year;
         }
 
         if ($municip_month != '') {
-            $rs_stmt1 = $rs_stmt1 . " and  MONTH(sc.comme_edt) = '$municip_month ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  MONTH(sc.comme_edt) = ? ";
+            $bind[] = $municip_month;
         }
         if ($municip_year != '') {
-            $rs_stmt1 = $rs_stmt1 . " and  YEAR(sc.comme_edt) = '$municip_year  ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  YEAR(sc.comme_edt) = ? ";
+            $bind[] = $municip_year;
         }
 
         if ($rentpay_month != '') {
-            $rs_stmt1 = $rs_stmt1 . " and  MONTH(sherp.rentpay_dt) = '$rentpay_month ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  MONTH(sherp.rentpay_dt) = ? ";
+            $bind[] = $rentpay_month;
         }
         if ($rentpay_year != '') {
-            $rs_stmt1 = $rs_stmt1 . " and  YEAR(sherp.rentpay_dt) = '$rentpay_year  ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  YEAR(sherp.rentpay_dt) = ? ";
+            $bind[] = $rentpay_year;
         }
 
         if ($shop_name  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sh.shop_name like '%$shop_name%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sh.shop_name like ? ";
+            $bind[] = "%$shop_name%";
         }
         if ($shop_mobile  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sh.shop_mobile like '%$shop_mobile%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sh.shop_mobile like ? ";
+            $bind[] = "%$shop_mobile%";
         }
         if ($manager_id  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sh.manager_id = '$manager_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sh.manager_id = ? ";
+            $bind[] = $manager_id;
         }
         if ($city_id  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sh.city_id = '$city_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sh.city_id = ? ";
+            $bind[] = $city_id;
         }
         if ($comme_no  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sc.comme_no = '$comme_no ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sc.comme_no = ? ";
+            $bind[] = $comme_no;
         }
         if ($municip_no  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sm.municip_no = '$municip_no ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sm.municip_no = ? ";
+            $bind[] = $municip_no;
         }
         $rs_stmt1 = $rs_stmt1 . "  group by sh.shop_id ";
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return  $results;
     }
 
@@ -391,9 +421,11 @@ left join  note_type n2 on nh.old_note_type_id =n2.note_type_id
         $municip_no = TRIM($municip_no);
         $rentpay_price = TRIM($rentpay_price);
 
+        $bind = [];
+
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder  = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder  = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord =  " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -462,7 +494,7 @@ CASE
             ";
         if ($this->emp_job != 1) {
             $rs_stmt1 = $rs_stmt1 . "
-            join workers_manager wm on sh.manager_id =wm.manager_id and  wm.user_id=$this->user_id";
+            join workers_manager wm on sh.manager_id =wm.manager_id and  wm.user_id=" . (int) $this->user_id;
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 ";
 
@@ -479,30 +511,36 @@ CASE
             $ord = " ORDER BY sm.municip_edt   ";
         }
         if ($comme_month != '') {
-            $rs_stmt1 = $rs_stmt1 . " and  MONTH(sc.comme_edt) = '$comme_month ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  MONTH(sc.comme_edt) = ? ";
+            $bind[] = $comme_month;
         }
         if ($comme_year != '') {
-            $rs_stmt1 = $rs_stmt1 . " and  YEAR(sc.comme_edt) = '$comme_year  ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  YEAR(sc.comme_edt) = ? ";
+            $bind[] = $comme_year;
         }
 
         if ($municip_month != '') {
-            $rs_stmt1 = $rs_stmt1 . " and  MONTH(sc.comme_edt) = '$municip_month ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  MONTH(sc.comme_edt) = ? ";
+            $bind[] = $municip_month;
         }
         if ($municip_year != '') {
-            $rs_stmt1 = $rs_stmt1 . " and  YEAR(sc.comme_edt) = '$municip_year  ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  YEAR(sc.comme_edt) = ? ";
+            $bind[] = $municip_year;
         }
 
         if ($rentpay_month != '') {
-            $rs_stmt1 = $rs_stmt1 . " and  MONTH(sherp.rentpay_dt) = '$rentpay_month ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  MONTH(sherp.rentpay_dt) = ? ";
+            $bind[] = $rentpay_month;
         }
         if ($rentpay_year != '') {
-            $rs_stmt1 = $rs_stmt1 . " and  YEAR(sherp.rentpay_dt) = '$rentpay_year  ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  YEAR(sherp.rentpay_dt) = ? ";
+            $bind[] = $rentpay_year;
         }
 
 
         if ($this->emp_job != 1) {
             if (Perm::get_function_access(74)) {
-                $rs_stmt1 = $rs_stmt1 . " and  sh.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  sh.create_user = " . (int) $this->user_id . " ";
             }
         }
         if ($rentpay_price  != "") {
@@ -514,29 +552,35 @@ CASE
             }
         }
         if ($shop_name  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sh.shop_name like '%$shop_name%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sh.shop_name like ? ";
+            $bind[] = "%$shop_name%";
         }
         if ($shop_mobile  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sh.shop_mobile like '%$shop_mobile%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sh.shop_mobile like ? ";
+            $bind[] = "%$shop_mobile%";
         }
         if ($manager_id  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sh.manager_id = '$manager_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sh.manager_id = ? ";
+            $bind[] = $manager_id;
         }
         if ($city_id  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sh.city_id = '$city_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sh.city_id = ? ";
+            $bind[] = $city_id;
         }
         if ($comme_no  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sc.comme_no = '$comme_no ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sc.comme_no = ? ";
+            $bind[] = $comme_no;
         }
         if ($municip_no  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sm.municip_no = '$municip_no ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sm.municip_no = ? ";
+            $bind[] = $municip_no;
         }
         $rs_stmt1 = $rs_stmt1 . "  group by sh.shop_id ";
 
         $rs_stmt1 = $rs_stmt1  . $ord;
         if (isset($b) and isset($a) and $b !="" and $a!="")
-            $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+            $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
         return  $results;
     }
 
@@ -554,9 +598,11 @@ CASE
         $comme_no = TRIM($comme_no);
         $municip_no = TRIM($municip_no);
 
+        $bind = [];
+
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder  = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder  = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord =  " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -632,33 +678,39 @@ CASE
                         ";
         if ($this->emp_job != 1) {
             $rs_stmt1 = $rs_stmt1 . "
-                        join workers_manager wm on sh.manager_id =wm.manager_id and  wm.user_id=$this->user_id";
+                        join workers_manager wm on sh.manager_id =wm.manager_id and  wm.user_id=" . (int) $this->user_id;
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 ";
 
 
         if ($this->emp_job != 1) {
             if (Perm::get_function_access(74)) {
-                $rs_stmt1 = $rs_stmt1 . " and  sh.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  sh.create_user = " . (int) $this->user_id . " ";
             }
         }
         if ($shop_name  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sh.shop_name like '%$shop_name%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sh.shop_name like ? ";
+            $bind[] = "%$shop_name%";
         }
         if ($shop_mobile  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sh.shop_mobile like '%$shop_mobile%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sh.shop_mobile like ? ";
+            $bind[] = "%$shop_mobile%";
         }
         if ($manager_id  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sh.manager_id = '$manager_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sh.manager_id = ? ";
+            $bind[] = $manager_id;
         }
         if ($city_id  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sh.city_id = '$city_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sh.city_id = ? ";
+            $bind[] = $city_id;
         }
         if ($comme_no  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sc.comme_no = '$comme_no ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sc.comme_no = ? ";
+            $bind[] = $comme_no;
         }
         if ($municip_no  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sm.municip_no = '$municip_no ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sm.municip_no = ? ";
+            $bind[] = $municip_no;
         }
         $rs_stmt1 = $rs_stmt1 . "  group by sh.shop_id ";
 
@@ -668,8 +720,8 @@ CASE
 
         $rs_stmt1 = $rs_stmt1  . $ord;
         if (isset($b) and isset($a) and $b !="" and $a!="")
-            $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+            $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
         return  $results;
     }
 
@@ -681,12 +733,14 @@ CASE
     public function scopeserachremarkcount($query, $shop_id)
     {
         $shop_id = TRIM($shop_id);
+        $bind = [];
         $rs_stmt1 = " SELECT shop_note_id FROM  shop_note where is_deleted=0  and   1=1  ";
         if ($shop_id  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  shop_id = '$shop_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  shop_id = ? ";
+            $bind[] = $shop_id;
         }
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return  $results;
     }
 
@@ -696,9 +750,10 @@ CASE
         $a = $_POST['length'];
         $b = $_POST['start'];
         $shop_id = TRIM($shop_id);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder  = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder  = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord =  " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -714,13 +769,14 @@ CASE
 
                             where sn.is_deleted=0  and   1=1 ";
         if ($shop_id  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sn.shop_id = '$shop_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sn.shop_id = ? ";
+            $bind[] = $shop_id;
         }
 
         $rs_stmt1 = $rs_stmt1  . $ord;
         if (isset($b) and isset($a) and $b !="" and $a!="")
-            $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+            $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
         return  $results;
     }
 
@@ -729,12 +785,14 @@ CASE
     public function scopeserachrentpaycount($query, $shop_id)
     {
         $shop_id = TRIM($shop_id);
+        $bind = [];
         $rs_stmt1 = " SELECT rentpay_id  FROM  shop_rentpay where   1=1  ";
         if ($shop_id  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  shop_id = '$shop_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  shop_id = ? ";
+            $bind[] = $shop_id;
         }
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return  $results;
     }
 
@@ -744,9 +802,10 @@ CASE
         $a = $_POST['length'] ?? "";
         $b = $_POST['start'] ?? "";
         $shop_id = TRIM($shop_id);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder  = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder  = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord =  " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -760,13 +819,14 @@ CASE
 
                                             where   1=1 ";
         if ($shop_id  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sn.shop_id = '$shop_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sn.shop_id = ? ";
+            $bind[] = $shop_id;
         }
 
         $rs_stmt1 = $rs_stmt1  . $ord;
         if (isset($b) and isset($a) and $b !="" and $a!="")
-            $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+            $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
         return  $results;
     }
 }

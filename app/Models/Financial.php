@@ -20,7 +20,16 @@ class Financial extends Model
     // public $incrementing = false;
 //protected $dateFormat = 'U';
 
-
+    /**
+     * أمن: تعقيم قائمة أعداد صحيحة تُستخدم داخل IN(...) — تحافظ على نفس القيم
+     * (رموز فئات 1..4) وتمنع حقن SQL. تُرجع "0" لو كانت القائمة فارغة لتفادي IN().
+     */
+    private static function intInList($list)
+    {
+        $parts = array_filter(array_map('trim', explode(',', (string) $list)), 'strlen');
+        $ints = array_map('intval', $parts);
+        return count($ints) ? implode(',', $ints) : '0';
+    }
 
 
     public function __construct(array $attributes = [])
@@ -34,16 +43,18 @@ class Financial extends Model
     public function scopeserachhistorycount($query, $financial_id)
     {
         $financial_id = TRIM($financial_id);
+        $bind = [];
         $rs_stmt1 = " SELECT vh. financial_detail_history_id   FROM   financial_detail_history vh
           join   financial v on vh.financial_id =v.financial_id
 
 
          where   1=1  and v.is_deleted=0 ";
         if ($financial_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  vh.financial_id = '$financial_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  vh.financial_id = ? ";
+            $bind[] = $financial_id;
         }
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -53,9 +64,10 @@ class Financial extends Model
         $a = $_POST['length'];
         $b = $_POST['start'];
         $financial_id = TRIM($financial_id);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -74,12 +86,13 @@ class Financial extends Model
                     where    1=1 and v.is_deleted=0
  ";
         if ($financial_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  vh.financial_id = '$financial_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  vh.financial_id = ? ";
+            $bind[] = $financial_id;
         }
 
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
         return $results;
     }
 
@@ -88,6 +101,7 @@ class Financial extends Model
     {
         $financial_month_m = TRIM($financial_month_m);
         $financial_month_y = TRIM($financial_month_y);
+        $bind = [];
         $rs_stmt1 = " 	 SELECT
 p.financial_month_y,p.financial_month_m,
 cd.financial_month_val as c1,
@@ -108,20 +122,21 @@ cd.financial_month_val as c1,
       ";
         if(  $this->emp_job!=1){
             $rs_stmt1 = $rs_stmt1 . "
-        join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+        join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
         if(  $this->emp_job!=1){
             if (Perm::get_function_access(73)) {
-                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = " . (int) $this->user_id . " ";
             }
         }
 
 
         if ($financial_month_y != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.financial_month_y = '$financial_month_y' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.financial_month_y = ? ";
+            $bind[] = $financial_month_y;
         }
 
 
@@ -134,7 +149,7 @@ cd.financial_month_val as c1,
 
 
 
-        $results = DB::select($rs_stmt1);
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
 
@@ -158,6 +173,7 @@ public function scopesumspendcountdesc($query, $financial_month_m, $financial_mo
     $financial_month_y = TRIM($financial_month_y);
     $from = TRIM($from);
     $to = TRIM($to);
+    $bind = [];
     $rs_stmt1 = " 	 SELECT
 
     p.financial_month_val as c1,
@@ -178,49 +194,57 @@ public function scopesumspendcountdesc($query, $financial_month_m, $financial_mo
   ";
     if(  $this->emp_job!=1){
         $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
     }
     $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
     if(  $this->emp_job!=1){
         if (Perm::get_function_access(73)) {
-            $rs_stmt1 = $rs_stmt1 . " and  p.create_user = $this->user_id ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.create_user = " . (int) $this->user_id . " ";
         }
     }
 
 
     if ($financial_month_y != "") {
-        $rs_stmt1 = $rs_stmt1 . " and  p.financial_month_y = '$financial_month_y ' ";
+        $rs_stmt1 = $rs_stmt1 . " and  p.financial_month_y = ? ";
+        $bind[] = $financial_month_y;
     }
     if ($from  != "" and $to  != "") {
-        $rs_stmt1 = $rs_stmt1 . " and  p.created_at between '$from' and '$to'  ";
+        $rs_stmt1 = $rs_stmt1 . " and  p.created_at between ? and ?  ";
+        $bind[] = $from;
+        $bind[] = $to;
     }
 
-    
+
     if ($from  != "" and $to  == "") {
-        $rs_stmt1 = $rs_stmt1 . " and  p.created_at >= '$from'   ";
+        $rs_stmt1 = $rs_stmt1 . " and  p.created_at >= ?   ";
+        $bind[] = $from;
     }
 
     if ($from  == "" and $to  != "") {
-        $rs_stmt1 = $rs_stmt1 . " and  p.created_at <= '$to'   ";
+        $rs_stmt1 = $rs_stmt1 . " and  p.created_at <= ?   ";
+        $bind[] = $to;
     }
 
     if ($financial_month_m != "") {
-        $rs_stmt1 = $rs_stmt1 . " and  p.financial_month_m = '$financial_month_m ' ";
+        $rs_stmt1 = $rs_stmt1 . " and  p.financial_month_m = ? ";
+        $bind[] = $financial_month_m;
     }
     if ($worker_id != "") {
-        $rs_stmt1 = $rs_stmt1 . " and  p.worker_id = '$worker_id' ";
+        $rs_stmt1 = $rs_stmt1 . " and  p.worker_id = ? ";
+        $bind[] = $worker_id;
     }
     if ($manager_id != "") {
-        $rs_stmt1 = $rs_stmt1 . " and  w.manager_id = '$manager_id' ";
+        $rs_stmt1 = $rs_stmt1 . " and  w.manager_id = ? ";
+        $bind[] = $manager_id;
     }
 
     $rs_stmt1 = $rs_stmt1 . "    group by p.financial_id ";
 
 
 
-    $results = DB::select($rs_stmt1);
+    $results = DB::select($rs_stmt1, $bind);
 
     return $results;
 
@@ -238,6 +262,8 @@ public function scopesumspendcountdesc($query, $financial_month_m, $financial_mo
         $from = TRIM($from);
         $to = TRIM($to);
 
+        $bind = [];
+
         $rs_stmt1 = " SELECT p.financial_id FROM   financial p
                 left join  workers w on p.worker_id=w.worker_id
 
@@ -247,14 +273,14 @@ left join  manager m on w.manager_id=m.manager_id
 
         if(  $this->emp_job!=1){
             $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
         if(  $this->emp_job!=1){
             if (Perm::get_function_access(73)) {
-                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = " . (int) $this->user_id . " ";
             }
         }
 
@@ -271,33 +297,41 @@ left join  manager m on w.manager_id=m.manager_id
 
 
 if ($financial_month_y != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  p.financial_month_y = '$financial_month_y ' ";
+    $rs_stmt1 = $rs_stmt1 . " and  p.financial_month_y = ? ";
+    $bind[] = $financial_month_y;
 }
 if ($financial_month_m != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  p.financial_month_m = '$financial_month_m ' ";
+    $rs_stmt1 = $rs_stmt1 . " and  p.financial_month_m = ? ";
+    $bind[] = $financial_month_m;
 }
 if ($from  != "" and $to  != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  p.created_at between '$from' and '$to'  ";
+    $rs_stmt1 = $rs_stmt1 . " and  p.created_at between ? and ?  ";
+    $bind[] = $from;
+    $bind[] = $to;
 }
 
 
 if ($from  != "" and $to  == "") {
-    $rs_stmt1 = $rs_stmt1 . " and  p.created_at >= '$from'   ";
+    $rs_stmt1 = $rs_stmt1 . " and  p.created_at >= ?   ";
+    $bind[] = $from;
 }
 
 if ($from  == "" and $to  != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  p.created_at <= '$to'   ";
+    $rs_stmt1 = $rs_stmt1 . " and  p.created_at <= ?   ";
+    $bind[] = $to;
 }
 
 if ($worker_id != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  p.worker_id = '$worker_id' ";
+    $rs_stmt1 = $rs_stmt1 . " and  p.worker_id = ? ";
+    $bind[] = $worker_id;
 }
 if ($manager_id != "") {
-    $rs_stmt1 = $rs_stmt1 . " and  w.manager_id = '$manager_id' ";
+    $rs_stmt1 = $rs_stmt1 . " and  w.manager_id = ? ";
+    $bind[] = $manager_id;
 }
 
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -306,6 +340,7 @@ if ($manager_id != "") {
         $financial_month_m = TRIM($financial_month_m);
         $financial_month_y = TRIM($financial_month_y);
 
+        $bind = [];
 
         $rs_stmt1 = " SELECT p.*,sh.worker_name,u.name,m.manager_name,
         cd.financial_detail_id as financial_detail_id,
@@ -328,38 +363,43 @@ left join  manager m on w.manager_id=m.manager_id
         ";
         if(  $this->emp_job!=1){
             $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
         if(  $this->emp_job!=1){
             if (Perm::get_function_access(73)) {
-                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = " . (int) $this->user_id . " ";
             }
         }
         if ($financial_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.financial_id = '$financial_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.financial_id = ? ";
+            $bind[] = $financial_id;
         }
         if ($financial_month_y != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.financial_month_y = '$financial_month_y ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.financial_month_y = ? ";
+            $bind[] = $financial_month_y;
         }
 
         if ($financial_month_m != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.financial_month_m = '$financial_month_m ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.financial_month_m = ? ";
+            $bind[] = $financial_month_m;
         }
         if ($worker_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.worker_id = '$worker_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.worker_id = ? ";
+            $bind[] = $worker_id;
         }
         if ($manager_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  w.manager_id = '$manager_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  w.manager_id = ? ";
+            $bind[] = $manager_id;
         }
 
         $rs_stmt1 = $rs_stmt1 . "    group by p.financial_id ";
 
 
 
-        $results = DB::select($rs_stmt1);
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }
@@ -371,9 +411,10 @@ left join  manager m on w.manager_id=m.manager_id
         $to = TRIM($to);
         $financial_month_m = TRIM($financial_month_m);
         $financial_month_y = TRIM($financial_month_y);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -405,49 +446,57 @@ left join  manager m on w.manager_id=m.manager_id
        ";
         if(  $this->emp_job!=1){
             $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
         if(  $this->emp_job!=1){
             if (Perm::get_function_access(73)) {
-                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = " . (int) $this->user_id . " ";
             }
         }
         if ($financial_month_y != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.financial_month_y = '$financial_month_y ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.financial_month_y = ? ";
+            $bind[] = $financial_month_y;
         }
         if ($from  != "" and $to  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.created_at between '$from' and '$to'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.created_at between ? and ?  ";
+            $bind[] = $from;
+            $bind[] = $to;
         }
 
-        
+
         if ($from  != "" and $to  == "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.created_at >= '$from'   ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.created_at >= ?   ";
+            $bind[] = $from;
         }
 
         if ($from  == "" and $to  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.created_at <= '$to'   ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.created_at <= ?   ";
+            $bind[] = $to;
         }
 
         if ($financial_month_m != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.financial_month_m = '$financial_month_m ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.financial_month_m = ? ";
+            $bind[] = $financial_month_m;
         }
         if ($worker_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.worker_id = '$worker_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.worker_id = ? ";
+            $bind[] = $worker_id;
         }
         if ($manager_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  w.manager_id = '$manager_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  w.manager_id = ? ";
+            $bind[] = $manager_id;
         }
 
         $rs_stmt1 = $rs_stmt1 . "    group by p.financial_id ";
 
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . "    limit $b,$a ";
+        $rs_stmt1 = $rs_stmt1 . "    limit " . (int) $b . "," . (int) $a . " ";
 
 
-        $results = DB::select($rs_stmt1);
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }
@@ -455,6 +504,7 @@ left join  manager m on w.manager_id=m.manager_id
     public function scopeserachspendcountdet($query, $financial_id)
     {
         $financial_id = TRIM($financial_id);
+        $bind = [];
         $rs_stmt1 = " SELECT p.financial_id
 
  FROM   financial p
@@ -463,22 +513,23 @@ left join  manager m on w.manager_id=m.manager_id
   ";
         if(  $this->emp_job!=1){
             $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
         if(  $this->emp_job!=1){
             if (Perm::get_function_access(73)) {
-                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = " . (int) $this->user_id . " ";
             }
         }
         if ($financial_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  financial_id = '$financial_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  financial_id = ? ";
+            $bind[] = $financial_id;
         }
 
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -488,9 +539,10 @@ left join  manager m on w.manager_id=m.manager_id
         $a = $_POST['length'];
         $b = $_POST['start'];
         $financial_id = TRIM($financial_id);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -525,23 +577,24 @@ left join  manager m on w.manager_id=m.manager_id
         ";
         if(  $this->emp_job!=1){
             $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
         if(  $this->emp_job!=1){
             if (Perm::get_function_access(73)) {
-                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = " . (int) $this->user_id . " ";
             }
         }
         if ($financial_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.financial_id = '$financial_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.financial_id = ? ";
+            $bind[] = $financial_id;
         }
 
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . " ORDER BY cd.financial_detail_id desc limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . " ORDER BY cd.financial_detail_id desc limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }

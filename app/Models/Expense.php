@@ -57,15 +57,18 @@ public function manager()
         $resultCount = 50;
         $end = ($page - 1) * $resultCount;
         $start = $end + $resultCount;
+        $bind = [];
         $sql = "SELECT expense_name as name, expense_id as id_no,expense_id as id,expense_respon
         from  expense where  1=1  ";
         if ($string != "") {
-            $sql = $sql . " and ( expense_name LIKE '%$string%' or ssn LIKE '$string%')    ";
+            $sql = $sql . " and ( expense_name LIKE ? or ssn LIKE ?)    ";
+            $bind[] = "%$string%";
+            $bind[] = "$string%";
         }
-        $sql = $sql . " order by expense_id  desc LIMIT {$end}, {$start} ";
-        $results = DB::select($sql);
-        $count_rs_chk = count(DB::select($sql));
-        $users = DB::select($sql);
+        $sql = $sql . " order by expense_id  desc LIMIT " . (int) $end . ", " . (int) $start . " ";
+        $results = DB::select($sql, $bind);
+        $count_rs_chk = count(DB::select($sql, $bind));
+        $users = DB::select($sql, $bind);
         $users = json_decode(json_encode($users), true);
         $data = array();
         foreach ($users as $user) {
@@ -85,6 +88,8 @@ public function manager()
         $manager_id = TRIM($manager_id);
         $worker_id = TRIM($worker_id);
         $shop_id = TRIM($shop_id);
+
+        $bind = [];
 
         $rs_stmt1 = "
 
@@ -118,21 +123,26 @@ public function manager()
 
 
         if ($expense_type_id != "") {
-             $rs_stmt1 = $rs_stmt1 . " and  ex.expense_type_id = '$expense_type_id ' ";
+             $rs_stmt1 = $rs_stmt1 . " and  ex.expense_type_id = ? ";
+             $bind[] = $expense_type_id;
         }
         if ($expense_month_desc != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_month_desc = '$expense_month_desc ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_month_desc = ? ";
+            $bind[] = $expense_month_desc;
         }
         if ($expense_categoty_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_categoty_id = '$expense_categoty_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_categoty_id = ? ";
+            $bind[] = $expense_categoty_id;
         }
 
          if ($worker_id != "") {
-             $rs_stmt1 = $rs_stmt1 . " and  ex.worker_id = '$worker_id ' ";
+             $rs_stmt1 = $rs_stmt1 . " and  ex.worker_id = ? ";
+             $bind[] = $worker_id;
          }
 
          if ($manager_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ex.manager_id = '$manager_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  ex.manager_id = ? ";
+            $bind[] = $manager_id;
         }
 
 
@@ -167,13 +177,16 @@ public function manager()
 
 
         if ($shop_id != "") {
-           $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = '$shop_id ' ";
+           $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = ? ";
+           $bind[] = $shop_id;
            }
            if ($manager_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  m.manager_id = '$manager_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  m.manager_id = ? ";
+            $bind[] = $manager_id;
         }
         if ($expense_month_desc != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_desc = '$expense_month_desc ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_desc = ? ";
+            $bind[] = $expense_month_desc;
         }
       $rs_stmt1 = $rs_stmt1 . "   group by p.calculate_id         ";
 
@@ -210,13 +223,16 @@ public function manager()
 
 
         if ($worker_id != "") {
-           $rs_stmt1 = $rs_stmt1 . " and  p.worker_id = '$worker_id ' ";
+           $rs_stmt1 = $rs_stmt1 . " and  p.worker_id = ? ";
+           $bind[] = $worker_id;
        }
        if ($manager_id != "") {
-        $rs_stmt1 = $rs_stmt1 . " and  m.manager_id = '$manager_id ' ";
+        $rs_stmt1 = $rs_stmt1 . " and  m.manager_id = ? ";
+        $bind[] = $manager_id;
     }
     if ($expense_month_desc != "") {
-        $rs_stmt1 = $rs_stmt1 . " and  p.expense_month_desc = '$expense_month_desc ' ";
+        $rs_stmt1 = $rs_stmt1 . " and  p.expense_month_desc = ? ";
+        $bind[] = $expense_month_desc;
     }
        $rs_stmt1 = $rs_stmt1 . "  group by p.expense_id
 
@@ -230,7 +246,8 @@ public function manager()
 
 
          if ($type != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  c.type = '$type' ";
+            $rs_stmt1 = $rs_stmt1 . " and  c.type = ? ";
+            $bind[] = $type;
         }
 
         if ($det_calculate_month_remain != "") {
@@ -242,7 +259,7 @@ public function manager()
             }
         }
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -256,9 +273,10 @@ public function manager()
         $manager_id = TRIM($manager_id);
         $worker_id = TRIM($worker_id);
         $shop_id = TRIM($shop_id);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -300,23 +318,29 @@ public function manager()
 
 
                     if ($expense_type_id != "") {
-                        $rs_stmt1 = $rs_stmt1 . " and  ex.expense_type_id = '$expense_type_id ' ";
+                        $rs_stmt1 = $rs_stmt1 . " and  ex.expense_type_id = ? ";
+                        $bind[] = $expense_type_id;
                    }
 
                    if ($expense_categoty_id != "") {
-                       $rs_stmt1 = $rs_stmt1 . " and  ex.expense_categoty_id = '$expense_categoty_id ' ";
+                       $rs_stmt1 = $rs_stmt1 . " and  ex.expense_categoty_id = ? ";
+                       $bind[] = $expense_categoty_id;
                    }
                    if ($expense_month_desc != "") {
-                    $rs_stmt1 = $rs_stmt1 . " and  ex.expense_month_desc = '$expense_month_desc ' ";
+                    $rs_stmt1 = $rs_stmt1 . " and  ex.expense_month_desc = ? ";
+                    $bind[] = $expense_month_desc;
                 }
                     if ($worker_id != "") {
-                        $rs_stmt1 = $rs_stmt1 . " and  ex.worker_id = '$worker_id ' ";
+                        $rs_stmt1 = $rs_stmt1 . " and  ex.worker_id = ? ";
+                        $bind[] = $worker_id;
                     }
                     if ($shop_id != "") {
-                    $rs_stmt1 = $rs_stmt1 . " and  ex.shop_id = '$shop_id ' ";
+                    $rs_stmt1 = $rs_stmt1 . " and  ex.shop_id = ? ";
+                    $bind[] = $shop_id;
                     }
                     if ($manager_id != "") {
-                        $rs_stmt1 = $rs_stmt1 . " and  ex.manager_id = '$manager_id ' ";
+                        $rs_stmt1 = $rs_stmt1 . " and  ex.manager_id = ? ";
+                        $bind[] = $manager_id;
                     }
 
 
@@ -349,13 +373,16 @@ public function manager()
 
 
                      if ($shop_id != "") {
-                        $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = '$shop_id ' ";
+                        $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = ? ";
+                        $bind[] = $shop_id;
                         }
                         if ($manager_id != "") {
-                            $rs_stmt1 = $rs_stmt1 . " and  m.manager_id = '$manager_id ' ";
+                            $rs_stmt1 = $rs_stmt1 . " and  m.manager_id = ? ";
+                            $bind[] = $manager_id;
                         }
                         if ($expense_month_desc != "") {
-                            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_desc = '$expense_month_desc ' ";
+                            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_desc = ? ";
+                            $bind[] = $expense_month_desc;
                         }
                    $rs_stmt1 = $rs_stmt1 . "   group by p.calculate_id
 
@@ -389,13 +416,16 @@ public function manager()
          where  1=1 and p.is_deleted=0";
 
          if ($worker_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.worker_id = '$worker_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.worker_id = ? ";
+            $bind[] = $worker_id;
         }
         if ($manager_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  m.manager_id = '$manager_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  m.manager_id = ? ";
+            $bind[] = $manager_id;
         }
         if ($expense_month_desc != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.expense_month_desc = '$expense_month_desc ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.expense_month_desc = ? ";
+            $bind[] = $expense_month_desc;
         }
         $rs_stmt1 = $rs_stmt1 . "  group by p.expense_id
 
@@ -411,7 +441,8 @@ where 1=1
 
 
                     if ($type != "") {
-                        $rs_stmt1 = $rs_stmt1 . " and  c.type = '$type' ";
+                        $rs_stmt1 = $rs_stmt1 . " and  c.type = ? ";
+                        $bind[] = $type;
                     }
 
 
@@ -430,9 +461,9 @@ where 1=1
 
        // $rs_stmt1 = $rs_stmt1 . "  group by shop_id";
 
-        $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
+        $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
         try {
-            $results = DB::select($rs_stmt1);
+            $results = DB::select($rs_stmt1, $bind);
 
         } catch (\Throwable $th) {
             //throw $th;
@@ -453,9 +484,10 @@ where 1=1
         $manager_id = TRIM($manager_id);
         $worker_id = TRIM($worker_id);
         $shop_id = TRIM($shop_id);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -497,23 +529,29 @@ where 1=1
 
 
                     if ($expense_type_id != "") {
-                        $rs_stmt1 = $rs_stmt1 . " and  ex.expense_type_id = '$expense_type_id ' ";
+                        $rs_stmt1 = $rs_stmt1 . " and  ex.expense_type_id = ? ";
+                        $bind[] = $expense_type_id;
                    }
 
                    if ($expense_categoty_id != "") {
-                       $rs_stmt1 = $rs_stmt1 . " and  ex.expense_categoty_id = '$expense_categoty_id ' ";
+                       $rs_stmt1 = $rs_stmt1 . " and  ex.expense_categoty_id = ? ";
+                       $bind[] = $expense_categoty_id;
                    }
                    if ($expense_month_desc != "") {
-                    $rs_stmt1 = $rs_stmt1 . " and  ex.expense_month_desc = '$expense_month_desc ' ";
+                    $rs_stmt1 = $rs_stmt1 . " and  ex.expense_month_desc = ? ";
+                    $bind[] = $expense_month_desc;
                 }
                     if ($worker_id != "") {
-                        $rs_stmt1 = $rs_stmt1 . " and  ex.worker_id = '$worker_id ' ";
+                        $rs_stmt1 = $rs_stmt1 . " and  ex.worker_id = ? ";
+                        $bind[] = $worker_id;
                     }
                     if ($shop_id != "") {
-                    $rs_stmt1 = $rs_stmt1 . " and  ex.shop_id = '$shop_id ' ";
+                    $rs_stmt1 = $rs_stmt1 . " and  ex.shop_id = ? ";
+                    $bind[] = $shop_id;
                     }
                     if ($manager_id != "") {
-                        $rs_stmt1 = $rs_stmt1 . " and  ex.manager_id = '$manager_id ' ";
+                        $rs_stmt1 = $rs_stmt1 . " and  ex.manager_id = ? ";
+                        $bind[] = $manager_id;
                     }
 
 
@@ -546,13 +584,16 @@ where 1=1
 
 
                      if ($shop_id != "") {
-                        $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = '$shop_id ' ";
+                        $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = ? ";
+                        $bind[] = $shop_id;
                         }
                         if ($manager_id != "") {
-                            $rs_stmt1 = $rs_stmt1 . " and  m.manager_id = '$manager_id ' ";
+                            $rs_stmt1 = $rs_stmt1 . " and  m.manager_id = ? ";
+                            $bind[] = $manager_id;
                         }
                         if ($expense_month_desc != "") {
-                            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_desc = '$expense_month_desc ' ";
+                            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_desc = ? ";
+                            $bind[] = $expense_month_desc;
                         }
                    $rs_stmt1 = $rs_stmt1 . "   group by p.calculate_id
 
@@ -586,13 +627,16 @@ where 1=1
          where  1=1 and p.is_deleted=0";
 
          if ($worker_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.worker_id = '$worker_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.worker_id = ? ";
+            $bind[] = $worker_id;
         }
         if ($manager_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  m.manager_id = '$manager_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  m.manager_id = ? ";
+            $bind[] = $manager_id;
         }
         if ($expense_month_desc != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.expense_month_desc = '$expense_month_desc ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.expense_month_desc = ? ";
+            $bind[] = $expense_month_desc;
         }
         $rs_stmt1 = $rs_stmt1 . "  group by p.expense_id
 
@@ -608,7 +652,8 @@ where 1=1
 
 
                     if ($type != "") {
-                        $rs_stmt1 = $rs_stmt1 . " and  c.type = '$type' ";
+                        $rs_stmt1 = $rs_stmt1 . " and  c.type = ? ";
+                        $bind[] = $type;
                     }
 
 
@@ -626,7 +671,7 @@ where 1=1
         $rs_stmt1 = $rs_stmt1 . $ord;
 
 
-        $results = DB::select($rs_stmt1);
+        $results = DB::select($rs_stmt1, $bind);
         return $results;
     }
 
@@ -642,34 +687,45 @@ where 1=1
         $worker_id = TRIM($worker_id);
         $shop_id = TRIM($shop_id);
 
+        $bind = [];
+
         $rs_stmt1 = " SELECT expense_id FROM  expense where  1=1  ";
         if ($expense_type_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  expense_type_id = '$expense_type_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  expense_type_id = ? ";
+            $bind[] = $expense_type_id;
         }
         if ($expense_categoty_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  expense_categoty_id = '$expense_categoty_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  expense_categoty_id = ? ";
+            $bind[] = $expense_categoty_id;
         }
         if ($manager_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  manager_id = '$manager_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  manager_id = ? ";
+            $bind[] = $manager_id;
         }
         if ($worker_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  worker_id = '$worker_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  worker_id = ? ";
+            $bind[] = $worker_id;
         }
         if ($shop_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  shop_id = '$shop_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  shop_id = ? ";
+            $bind[] = $shop_id;
         }
         if ($expense_dt_from != "" and $expense_dt_to != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  expense_dt between '$expense_dt_from' and '$expense_dt_to'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  expense_dt between ? and ?  ";
+            $bind[] = $expense_dt_from;
+            $bind[] = $expense_dt_to;
         }
 
         if ($expense_dt_from != "" and $expense_dt_to = "") {
-            $rs_stmt1 = $rs_stmt1 . " and  expense_dt >= '$expense_dt_from'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  expense_dt >= ?  ";
+            $bind[] = $expense_dt_from;
         }
 
         if ($expense_dt_from == "" and $expense_dt_to != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  expense_dt <= '$expense_dt_to'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  expense_dt <= ?  ";
+            $bind[] = $expense_dt_to;
         }
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -685,6 +741,8 @@ where 1=1
         $worker_id = TRIM($worker_id);
         $shop_id = TRIM($shop_id);
 
+        $bind = [];
+
         $rs_stmt1 = " SELECT ex.*,m.manager_name,u.name,et.expense_type_name,ec.expense_categoty_name,s.shop_name,w.worker_name FROM  expense ex
             left join  manager m on ex.manager_id=m.manager_id
             left join  users u on ex.create_user=u.id
@@ -695,36 +753,46 @@ where 1=1
 
             where  1=1 ";
                     if ($expense_id != "") {
-                        $rs_stmt1 = $rs_stmt1 . " and  ex.expense_id = '$expense_id ' ";
+                        $rs_stmt1 = $rs_stmt1 . " and  ex.expense_id = ? ";
+                        $bind[] = $expense_id;
                     }
 
         if ($expense_type_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_type_id = '$expense_type_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_type_id = ? ";
+            $bind[] = $expense_type_id;
         }
         if ($expense_categoty_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_categoty_id = '$expense_categoty_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_categoty_id = ? ";
+            $bind[] = $expense_categoty_id;
         }
         if ($manager_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ex.manager_id = '$manager_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  ex.manager_id = ? ";
+            $bind[] = $manager_id;
         }
         if ($worker_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ex.worker_id = '$worker_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  ex.worker_id = ? ";
+            $bind[] = $worker_id;
         }
         if ($shop_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ex.shop_id = '$shop_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  ex.shop_id = ? ";
+            $bind[] = $shop_id;
         }
         if ($expense_dt_from != "" and $expense_dt_to != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_dt between '$expense_dt_from' and '$expense_dt_to'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_dt between ? and ?  ";
+            $bind[] = $expense_dt_from;
+            $bind[] = $expense_dt_to;
         }
 
         if ($expense_dt_from != "" and $expense_dt_to = "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_dt >= '$expense_dt_from'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_dt >= ?  ";
+            $bind[] = $expense_dt_from;
         }
 
         if ($expense_dt_from == "" and $expense_dt_to != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_dt <= '$expense_dt_to'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_dt <= ?  ";
+            $bind[] = $expense_dt_to;
         }
-        $results = DB::select($rs_stmt1);
+        $results = DB::select($rs_stmt1, $bind);
         return $results;
     }
 
@@ -748,9 +816,10 @@ where 1=1
         $manager_id = TRIM($manager_id);
         $worker_id = TRIM($worker_id);
         $shop_id = TRIM($shop_id);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -773,34 +842,43 @@ where 1=1
 
             where  1=1 ";
         if ($expense_type_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_type_id = '$expense_type_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_type_id = ? ";
+            $bind[] = $expense_type_id;
         }
         if ($expense_categoty_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_categoty_id = '$expense_categoty_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_categoty_id = ? ";
+            $bind[] = $expense_categoty_id;
         }
         if ($manager_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ex.manager_id = '$manager_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  ex.manager_id = ? ";
+            $bind[] = $manager_id;
         }
         if ($worker_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ex.worker_id = '$worker_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  ex.worker_id = ? ";
+            $bind[] = $worker_id;
         }
         if ($shop_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ex.shop_id = '$shop_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  ex.shop_id = ? ";
+            $bind[] = $shop_id;
         }
         if ($expense_dt_from != "" and $expense_dt_to != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_dt between '$expense_dt_from' and '$expense_dt_to'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_dt between ? and ?  ";
+            $bind[] = $expense_dt_from;
+            $bind[] = $expense_dt_to;
         }
 
         if ($expense_dt_from != "" and $expense_dt_to = "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_dt >= '$expense_dt_from'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_dt >= ?  ";
+            $bind[] = $expense_dt_from;
         }
 
         if ($expense_dt_from == "" and $expense_dt_to != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_dt <= '$expense_dt_to'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  ex.expense_dt <= ?  ";
+            $bind[] = $expense_dt_to;
         }
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
         return $results;
     }
 
@@ -808,12 +886,14 @@ where 1=1
     public function scopeserachremarkcount($query, $expense_id)
     {
         $expense_id = TRIM($expense_id);
+        $bind = [];
         $rs_stmt1 = " SELECT expense_note_id FROM  expense_note where is_deleted=0 and   1=1  ";
         if ($expense_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  expense_id = '$expense_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  expense_id = ? ";
+            $bind[] = $expense_id;
         }
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -823,9 +903,10 @@ where 1=1
         $a = $_POST['length'];
         $b = $_POST['start'];
         $expense_id = TRIM($expense_id);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -842,12 +923,13 @@ where 1=1
 
                             where sn.is_deleted=0 and   1=1 ";
         if ($expense_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sn.expense_id = '$expense_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sn.expense_id = ? ";
+            $bind[] = $expense_id;
         }
 
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
         return $results;
     }
 
@@ -855,6 +937,7 @@ where 1=1
     public function scopeserachspendcountdet($query, $expense_id)
     {
         $expense_id = TRIM($expense_id);
+        $bind = [];
         $rs_stmt1 = " SELECT p.expense_id
 
  FROM   expense p
@@ -863,7 +946,7 @@ where 1=1
   ";
         if(  $this->emp_job!=1){
             $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
         }
         // $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
@@ -871,15 +954,16 @@ where 1=1
 
         if(  $this->emp_job!=1){
             if (Perm::get_function_access(73)) {
-                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = " . (int) $this->user_id . " ";
             }
         }
         if ($expense_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  expense_id = '$expense_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  expense_id = ? ";
+            $bind[] = $expense_id;
         }
 
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -890,9 +974,10 @@ where 1=1
         $a = $_POST['length'];
         $b = $_POST['start'];
         $expense_id = TRIM($expense_id);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -927,23 +1012,24 @@ where 1=1
         ";
         if(  $this->emp_job!=1){
             $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
         if(  $this->emp_job!=1){
             if (Perm::get_function_access(73)) {
-                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = " . (int) $this->user_id . " ";
             }
         }
         if ($expense_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.expense_id = '$expense_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.expense_id = ? ";
+            $bind[] = $expense_id;
         }
 
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . " ORDER BY cd.expense_detail_id desc limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . " ORDER BY cd.expense_detail_id desc limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }

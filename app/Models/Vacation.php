@@ -20,6 +20,8 @@ public function scopeserachspendcountdesc($query,$vacation_month_m,$vacation_mon
     $vacation_month_y = TRIM($vacation_month_y);
     $worker_id = TRIM($worker_id);
 
+    $bind = [];
+
     $rs_stmt1 = " SELECT vacation_id FROM   vacation where  1=1    ";
 
     /*    if ($vacation_month_y  != "") {
@@ -27,17 +29,22 @@ public function scopeserachspendcountdesc($query,$vacation_month_m,$vacation_mon
             }*/
 
             if ($vacation_month_m  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and ( Month(start)='$vacation_month_m' ||  Month(end)='$vacation_month_m')  ";
+            $rs_stmt1 = $rs_stmt1 . " and ( Month(start)= ? ||  Month(end)= ? )  ";
+            $bind[] = $vacation_month_m;
+            $bind[] = $vacation_month_m;
             }
             if ($vacation_month_y  != "") {
-                $rs_stmt1 = $rs_stmt1 . " and ( Year(start)='$vacation_month_y' ||  Year(end)='$vacation_month_y')  ";
+                $rs_stmt1 = $rs_stmt1 . " and ( Year(start)= ? ||  Year(end)= ? )  ";
+                $bind[] = $vacation_month_y;
+                $bind[] = $vacation_month_y;
                 }
 
             if ($worker_id  != "") {
-                $rs_stmt1 = $rs_stmt1 . " and  worker_id = '$worker_id' ";
+                $rs_stmt1 = $rs_stmt1 . " and  worker_id = ? ";
+                $bind[] = $worker_id;
                 }
 
-      $results = count(DB::select($rs_stmt1));
+      $results = count(DB::select($rs_stmt1, $bind));
     return  $results;
     }
 
@@ -50,10 +57,12 @@ $vacation_month_y = TRIM($vacation_month_y);
 $vacation_month_m = TRIM($vacation_month_m);
 $worker_id = TRIM($worker_id);
 
+$bind = [];
+
 if(isset($_POST['order']))
             {
-            $columnName=$_POST['order']['0']['column'];
-            $columnSortOrder  = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if($columnName!=0){
             $ord =  " order by  ".$columnName. " ". $columnSortOrder ;
             }
@@ -74,23 +83,28 @@ COALESCE(sum(p.count_day), 0) as count_day
          where  1=1  ";
 
 if ($vacation_month_m  != "") {
-    $rs_stmt1 = $rs_stmt1 . " and ( Month(start)='$vacation_month_m' ||  Month(end)='$vacation_month_m')  ";
+    $rs_stmt1 = $rs_stmt1 . " and ( Month(start)= ? ||  Month(end)= ? )  ";
+    $bind[] = $vacation_month_m;
+    $bind[] = $vacation_month_m;
     }
     if ($vacation_month_y  != "") {
-        $rs_stmt1 = $rs_stmt1 . " and ( Year(start)='$vacation_month_y' ||  Year(end)='$vacation_month_y')  ";
+        $rs_stmt1 = $rs_stmt1 . " and ( Year(start)= ? ||  Year(end)= ? )  ";
+        $bind[] = $vacation_month_y;
+        $bind[] = $vacation_month_y;
         }
 
     if ($worker_id  != "") {
-        $rs_stmt1 = $rs_stmt1 . " and  worker_id = '$worker_id' ";
+        $rs_stmt1 = $rs_stmt1 . " and  worker_id = ? ";
+        $bind[] = $worker_id;
         }
 
             $rs_stmt1 = $rs_stmt1 . "    group by p.worker_id, Month(start),Year(start) ";
 
         $rs_stmt1 = $rs_stmt1  .$ord;
-        $rs_stmt1 = $rs_stmt1 . "    limit $b,$a ";
+        $rs_stmt1 = $rs_stmt1 . "    limit " . (int) $b . "," . (int) $a . " ";
 
 
-                $results = DB::select($rs_stmt1);
+                $results = DB::select($rs_stmt1, $bind);
 
         return  $results;
         }
@@ -101,24 +115,32 @@ if ($vacation_month_m  != "") {
     $worker_id = TRIM($worker_id);
     $vacation_type_id = TRIM($vacation_type_id);
 
+    $bind = [];
+
     $rs_stmt1 = " SELECT vacation_id FROM   vacation where  1=1 and is_deleted=0   ";
 
             if ($worker_id  != "") {
-                $rs_stmt1 = $rs_stmt1 . " and  worker_id = '$worker_id' ";
+                $rs_stmt1 = $rs_stmt1 . " and  worker_id = ? ";
+                $bind[] = $worker_id;
                 }
                 if ($vacation_month_m  != "") {
-                    $rs_stmt1 = $rs_stmt1 . " and ( Month(start)='$vacation_month_m' ||  Month(end)='$vacation_month_m')  ";
+                    $rs_stmt1 = $rs_stmt1 . " and ( Month(start)= ? ||  Month(end)= ? )  ";
+                    $bind[] = $vacation_month_m;
+                    $bind[] = $vacation_month_m;
                     }
                     if ($vacation_month_y  != "") {
-                        $rs_stmt1 = $rs_stmt1 . " and ( Year(start)='$vacation_month_y' ||  Year(end)='$vacation_month_y')  ";
+                        $rs_stmt1 = $rs_stmt1 . " and ( Year(start)= ? ||  Year(end)= ? )  ";
+                        $bind[] = $vacation_month_y;
+                        $bind[] = $vacation_month_y;
                         }
 
                     if ($worker_id  != "") {
-                        $rs_stmt1 = $rs_stmt1 . " and  worker_id = '$worker_id' ";
+                        $rs_stmt1 = $rs_stmt1 . " and  worker_id = ? ";
+                        $bind[] = $worker_id;
                         }
 
 
-      $results = count(DB::select($rs_stmt1));
+      $results = count(DB::select($rs_stmt1, $bind));
     return  $results;
     }
 
@@ -131,10 +153,12 @@ $vacation_month_y = TRIM($vacation_month_y);
 $worker_id = TRIM($worker_id);
 $vacation_type_id = TRIM($vacation_type_id);
 
+$bind = [];
+
 if(isset($_POST['order']))
             {
-            $columnName=$_POST['order']['0']['column'];
-            $columnSortOrder  = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if($columnName!=0){
             $ord =  " order by  ".$columnName. " ". $columnSortOrder ;
             }
@@ -158,18 +182,23 @@ if(isset($_POST['order']))
                      where  1=1  ";
 
 if ($vacation_month_m  != "") {
-    $rs_stmt1 = $rs_stmt1 . " and ( Month(p.start)='$vacation_month_m' ||  Month(p.end)='$vacation_month_m')  ";
+    $rs_stmt1 = $rs_stmt1 . " and ( Month(p.start)= ? ||  Month(p.end)= ? )  ";
+    $bind[] = $vacation_month_m;
+    $bind[] = $vacation_month_m;
     }
     if ($vacation_month_y  != "") {
-        $rs_stmt1 = $rs_stmt1 . " and ( Year(p.start)='$vacation_month_y' ||  Year(p.end)='$vacation_month_y')  ";
+        $rs_stmt1 = $rs_stmt1 . " and ( Year(p.start)= ? ||  Year(p.end)= ? )  ";
+        $bind[] = $vacation_month_y;
+        $bind[] = $vacation_month_y;
         }
 
     if ($worker_id  != "") {
-        $rs_stmt1 = $rs_stmt1 . " and  p.worker_id = '$worker_id' ";
+        $rs_stmt1 = $rs_stmt1 . " and  p.worker_id = ? ";
+        $bind[] = $worker_id;
         }
         $rs_stmt1 = $rs_stmt1  .$ord;
-        $rs_stmt1 = $rs_stmt1 . " ORDER BY p.vacation_id desc limit $b,$a ";
-                $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . " ORDER BY p.vacation_id desc limit " . (int) $b . "," . (int) $a . " ";
+                $results = DB::select($rs_stmt1, $bind);
 
         return  $results;
         }
@@ -192,6 +221,7 @@ if ($vacation_month_m  != "") {
     $vacation_type_id = TRIM($vacation_type_id);
     $vacation_id = TRIM($vacation_id);
 
+    $bind = [];
 
                 $rs_stmt1 = " SELECT p.*,sh.worker_name, vt.vacation_type_name,j.job_name,wp.work_place_name,name
                          FROM   vacation p
@@ -203,21 +233,27 @@ if ($vacation_month_m  != "") {
 
                          where  1=1  ";
     if ($vacation_id  != "") {
-        $rs_stmt1 = $rs_stmt1 . " and  p.vacation_id = '$vacation_id' ";
+        $rs_stmt1 = $rs_stmt1 . " and  p.vacation_id = ? ";
+        $bind[] = $vacation_id;
     }
 
     if ($vacation_month_m  != "") {
-        $rs_stmt1 = $rs_stmt1 . " and ( Month(p.start)='$vacation_month_m' ||  Month(p.end)='$vacation_month_m')  ";
+        $rs_stmt1 = $rs_stmt1 . " and ( Month(p.start)= ? ||  Month(p.end)= ? )  ";
+        $bind[] = $vacation_month_m;
+        $bind[] = $vacation_month_m;
         }
         if ($vacation_month_y  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and ( Year(p.start)='$vacation_month_y' ||  Year(p.end)='$vacation_month_y')  ";
+            $rs_stmt1 = $rs_stmt1 . " and ( Year(p.start)= ? ||  Year(p.end)= ? )  ";
+            $bind[] = $vacation_month_y;
+            $bind[] = $vacation_month_y;
             }
 
         if ($worker_id  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.worker_id = '$worker_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.worker_id = ? ";
+            $bind[] = $worker_id;
             }
             $rs_stmt1 = $rs_stmt1 . " ORDER BY p.vacation_id desc ";
-                    $results = DB::select($rs_stmt1);
+                    $results = DB::select($rs_stmt1, $bind);
 
             return  $results;
             }

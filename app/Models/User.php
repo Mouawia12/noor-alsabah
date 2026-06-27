@@ -95,9 +95,10 @@ class User extends Authenticatable
     {
         $a = $_POST['length'];
         $b = $_POST['start'];
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -112,8 +113,8 @@ class User extends Authenticatable
 
 
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }
@@ -123,15 +124,18 @@ class User extends Authenticatable
     {
         $name = TRIM($name);
         $email = TRIM($email);
+        $bind = [];
         $rs_stmt1 = " SELECT id FROM  users where  1=1  ";
         if ($name != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  name like '%$name%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  name like ? ";
+            $bind[] = "%$name%";
         }
 
         if ($email != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  email = '$email ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  email = ? ";
+            $bind[] = $email;
         }
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -142,9 +146,10 @@ class User extends Authenticatable
         $b = $_POST['start'];
         $name = TRIM($name);
         $email = TRIM($email);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -160,16 +165,18 @@ class User extends Authenticatable
 
                 where  1=1  ";
         if ($name != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  users.name like '%$name%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  users.name like ? ";
+            $bind[] = "%$name%";
         }
 
         if ($email != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  users.email = '$email ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  users.email = ? ";
+            $bind[] = $email;
         }
 
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }

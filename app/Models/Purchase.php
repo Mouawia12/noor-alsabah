@@ -32,15 +32,18 @@ class Purchase extends Model
         $resultCount = 50;
         $end = ($page - 1) * $resultCount;
         $start = $end + $resultCount;
+        $bind = [];
         $sql = "SELECT purchase_name as name, purchase_id as id_no,purchase_id as id,purchase_respon
         from  purchase where  1=1  ";
         if ($string != "") {
-            $sql = $sql . " and ( purchase_name LIKE '%$string%' or ssn LIKE '$string%')    ";
+            $sql = $sql . " and ( purchase_name LIKE ? or ssn LIKE ?)    ";
+            $bind[] = "%$string%";
+            $bind[] = "$string%";
         }
-        $sql = $sql . " order by purchase_id  desc LIMIT {$end}, {$start} ";
-        $results = DB::select($sql);
-        $count_rs_chk = count(DB::select($sql));
-        $users = DB::select($sql);
+        $sql = $sql . " order by purchase_id  desc LIMIT " . (int) $end . ", " . (int) $start . " ";
+        $results = DB::select($sql, $bind);
+        $count_rs_chk = count(DB::select($sql, $bind));
+        $users = DB::select($sql, $bind);
         $users = json_decode(json_encode($users), true);
         $data = array();
         foreach ($users as $user) {
@@ -65,34 +68,43 @@ class Purchase extends Model
         $create_users = TRIM($create_users);
         $created_at_date = TRIM($created_at_date);
 
+        $bind = [];
 
         $rs_stmt1 = " SELECT purchase_id FROM  purchase where  1=1  ";
         if ($purchase_no  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  purchase_no = '$purchase_no ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  purchase_no = ? ";
+            $bind[] = $purchase_no;
         }
 
         if ($purchase_respon  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  purchase_respon like '%$purchase_respon%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  purchase_respon like ? ";
+            $bind[] = "%$purchase_respon%";
         }
 
         if ($create_users  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  create_user = '$create_users' ";
+            $rs_stmt1 = $rs_stmt1 . " and  create_user = ? ";
+            $bind[] = $create_users;
         }
 
         if ($created_at_date  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  DATE(created_at) = '$created_at_date' ";
+            $rs_stmt1 = $rs_stmt1 . " and  DATE(created_at) = ? ";
+            $bind[] = $created_at_date;
         }
 
         if ($purchase_dt_from  != "" and $purchase_dt_to  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  purchase_dt between '$purchase_dt_from' and '$purchase_dt_to'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  purchase_dt between ? and ?  ";
+            $bind[] = $purchase_dt_from;
+            $bind[] = $purchase_dt_to;
         }
 
         if ($purchase_dt_from  != "" and $purchase_dt_to = "") {
-            $rs_stmt1 = $rs_stmt1 . " and  purchase_dt >= '$purchase_dt_from'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  purchase_dt >= ?  ";
+            $bind[] = $purchase_dt_from;
         }
 
         if ($purchase_dt_from  == "" and $purchase_dt_to != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  purchase_dt <= '$purchase_dt_to'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  purchase_dt <= ?  ";
+            $bind[] = $purchase_dt_to;
         }
         if ($shops == "on") {
             $rs_stmt1 = $rs_stmt1 . " and  manager_id  is NULL ";
@@ -116,12 +128,14 @@ class Purchase extends Model
         }
 
         if ($manager_id  != "" and $shops != "on") {
-            $rs_stmt1 = $rs_stmt1 . " and  manager_id = '$manager_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  manager_id = ? ";
+            $bind[] = $manager_id;
         }
         if ($shop_id  != "") {
-            $rs_stmt1 = $rs_stmt1 .  " and  shop_id = '$shop_id' ";
+            $rs_stmt1 = $rs_stmt1 .  " and  shop_id = ? ";
+            $bind[] = $shop_id;
         }
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return  $results;
     }
 
@@ -134,20 +148,24 @@ class Purchase extends Model
         $purchase_respon = TRIM($purchase_respon);
         $manager_id = TRIM($manager_id);
 
+        $bind = [];
 
         $rs_stmt1 = " SELECT p.*,m.manager_name,u.name FROM  purchase p
             left join  manager m on p.manager_id=m.manager_id
             left join  users u on p.create_user=u.id
             where  1=1 ";
         if ($purchase_id  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_id = '$purchase_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_id = ? ";
+            $bind[] = $purchase_id;
         }
         if ($purchase_no  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_no = '$purchase_no ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_no = ? ";
+            $bind[] = $purchase_no;
         }
 
         if ($purchase_respon  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_respon like '%$purchase_respon%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_respon like ? ";
+            $bind[] = "%$purchase_respon%";
         }
 
         if ($shops == "on") {
@@ -171,23 +189,29 @@ class Purchase extends Model
             $rs_stmt1 = $rs_stmt1 . " and  p.shop_id is  NULL";
         }
         if ($purchase_dt_from  != "" and $purchase_dt_to  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_dt between '$purchase_dt_from' and '$purchase_dt_to'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_dt between ? and ?  ";
+            $bind[] = $purchase_dt_from;
+            $bind[] = $purchase_dt_to;
         }
 
         if ($purchase_dt_from  != "" and $purchase_dt_to = "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_dt >= '$purchase_dt_from'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_dt >= ?  ";
+            $bind[] = $purchase_dt_from;
         }
 
         if ($purchase_dt_from  == "" and $purchase_dt_to != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_dt <= '$purchase_dt_to'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_dt <= ?  ";
+            $bind[] = $purchase_dt_to;
         }
         if ($manager_id  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.manager_id = '$manager_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.manager_id = ? ";
+            $bind[] = $manager_id;
         }
         if ($shop_id  != "") {
-            $rs_stmt1 = $rs_stmt1 .  " and  p.shop_id = '$shop_id' ";
+            $rs_stmt1 = $rs_stmt1 .  " and  p.shop_id = ? ";
+            $bind[] = $shop_id;
         }
-        $results = DB::select($rs_stmt1);
+        $results = DB::select($rs_stmt1, $bind);
         return  $results;
     }
 
@@ -204,9 +228,12 @@ class Purchase extends Model
         $create_users = TRIM($create_users);
         $shop_id = TRIM($shop_id);
         $created_at_date = TRIM($created_at_date);
+
+        $bind = [];
+
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder  = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord =  " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -221,31 +248,39 @@ class Purchase extends Model
             left join  users u on p.create_user=u.id
             where  1=1 ";
         if ($purchase_no  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_no = '$purchase_no ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_no = ? ";
+            $bind[] = $purchase_no;
         }
 
         if ($purchase_respon  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_respon like '%$purchase_respon%' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_respon like ? ";
+            $bind[] = "%$purchase_respon%";
         }
 
         if ($create_users  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.create_user = '$create_users' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.create_user = ? ";
+            $bind[] = $create_users;
         }
 
         if ($created_at_date  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  DATE(p.created_at) = '$created_at_date' ";
+            $rs_stmt1 = $rs_stmt1 . " and  DATE(p.created_at) = ? ";
+            $bind[] = $created_at_date;
         }
 
         if ($purchase_dt_from  != "" and $purchase_dt_to  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_dt between '$purchase_dt_from' and '$purchase_dt_to'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_dt between ? and ?  ";
+            $bind[] = $purchase_dt_from;
+            $bind[] = $purchase_dt_to;
         }
 
         if ($purchase_dt_from  != "" and $purchase_dt_to = "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_dt >= '$purchase_dt_from'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_dt >= ?  ";
+            $bind[] = $purchase_dt_from;
         }
 
         if ($purchase_dt_from  == "" and $purchase_dt_to != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_dt <= '$purchase_dt_to'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.purchase_dt <= ?  ";
+            $bind[] = $purchase_dt_to;
         }
         if ($shops == "on") {
             $rs_stmt1 = $rs_stmt1 . " and  p.manager_id  is NULL ";
@@ -267,16 +302,18 @@ class Purchase extends Model
             $rs_stmt1 = $rs_stmt1 . " and  p.shop_id is  NULL";
         }
         if ($manager_id  != "" and $shops != "on") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.manager_id = '$manager_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.manager_id = ? ";
+            $bind[] = $manager_id;
         }
         if ($shop_id  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = '$shop_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = ? ";
+            $bind[] = $shop_id;
         }
 
 
         $rs_stmt1 = $rs_stmt1  . $ord;
-        $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
         return  $results;
     }
 
@@ -290,12 +327,14 @@ class Purchase extends Model
     public function scopeserachremarkcount($query, $purchase_id)
     {
         $purchase_id = TRIM($purchase_id);
+        $bind = [];
         $rs_stmt1 = " SELECT purchase_note_id FROM  purchase_note where is_deleted=0 and   1=1  ";
         if ($purchase_id  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  purchase_id = '$purchase_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  purchase_id = ? ";
+            $bind[] = $purchase_id;
         }
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return  $results;
     }
 
@@ -305,9 +344,10 @@ class Purchase extends Model
         $a = $_POST['length'];
         $b = $_POST['start'];
         $purchase_id = TRIM($purchase_id);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder  = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord =  " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -323,12 +363,13 @@ class Purchase extends Model
 
                             where sn.is_deleted=0 and   1=1 ";
         if ($purchase_id  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  sn.purchase_id = '$purchase_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  sn.purchase_id = ? ";
+            $bind[] = $purchase_id;
         }
 
         $rs_stmt1 = $rs_stmt1  . $ord;
-        $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
         return  $results;
     }
 }

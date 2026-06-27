@@ -31,6 +31,7 @@ class Calculate extends Model
 
     public function scopesumspendcounthome($query, $calculate_month_m, $calculate_month_y)
     {
+        $bind = [];
         $rs_stmt1 = " SELECT
  p.calculate_month_y,p.calculate_month_m,
  cd.calculate_month_val as c1,
@@ -45,23 +46,25 @@ class Calculate extends Model
        ";
         if ($this->emp_job != 1) {
             $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
         if ($this->emp_job != 1) {
             if (Perm::get_function_access(75)) {
-                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = " . (int) $this->user_id . " ";
             }
         }
 
 
         if ($calculate_month_y != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_y = '$calculate_month_y' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_y = ? ";
+            $bind[] = $calculate_month_y;
         }
 
         if ($calculate_month_m != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_m = '$calculate_month_m' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_m = ? ";
+            $bind[] = $calculate_month_m;
         }
 
         if ($calculate_month_m != '') {
@@ -71,7 +74,7 @@ class Calculate extends Model
         }
 
 
-        $results = DB::select($rs_stmt1);
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }
@@ -94,6 +97,7 @@ public function scopesumspendcountdesc($query, $calculate_month_m, $calculate_mo
     $calculate_month_y = TRIM($calculate_month_y);
     $from = TRIM($from);
     $to = TRIM($to);
+    $bind = [];
     $rs_stmt1 = " 	 SELECT
 
     p.calculate_month_val as c1,
@@ -114,49 +118,57 @@ public function scopesumspendcountdesc($query, $calculate_month_m, $calculate_mo
   ";
     if(  $this->emp_job!=1){
         $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on w.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
 
     }
     $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
     if(  $this->emp_job!=1){
         if (Perm::get_function_access(73)) {
-            $rs_stmt1 = $rs_stmt1 . " and  p.create_user = $this->user_id ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.create_user = " . (int) $this->user_id . " ";
         }
     }
 
 
     if ($calculate_month_y != "") {
-        $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_y = '$calculate_month_y ' ";
+        $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_y = ? ";
+        $bind[] = $calculate_month_y;
     }
     if ($from  != "" and $to  != "") {
-        $rs_stmt1 = $rs_stmt1 . " and  p.created_at between '$from' and '$to'  ";
+        $rs_stmt1 = $rs_stmt1 . " and  p.created_at between ? and ?  ";
+        $bind[] = $from;
+        $bind[] = $to;
     }
 
 
     if ($from  != "" and $to  == "") {
-        $rs_stmt1 = $rs_stmt1 . " and  p.created_at >= '$from'   ";
+        $rs_stmt1 = $rs_stmt1 . " and  p.created_at >= ?   ";
+        $bind[] = $from;
     }
 
     if ($from  == "" and $to  != "") {
-        $rs_stmt1 = $rs_stmt1 . " and  p.created_at <= '$to'   ";
+        $rs_stmt1 = $rs_stmt1 . " and  p.created_at <= ?   ";
+        $bind[] = $to;
     }
 
     if ($calculate_month_m != "") {
-        $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_m = '$calculate_month_m ' ";
+        $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_m = ? ";
+        $bind[] = $calculate_month_m;
     }
     if ($shop_id != "") {
-        $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = '$shop_id' ";
+        $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = ? ";
+        $bind[] = $shop_id;
     }
     if ($manager_id != "") {
-        $rs_stmt1 = $rs_stmt1 . " and  w.manager_id = '$manager_id' ";
+        $rs_stmt1 = $rs_stmt1 . " and  w.manager_id = ? ";
+        $bind[] = $manager_id;
     }
 
     $rs_stmt1 = $rs_stmt1 . "    group by p.calculate_id ";
 
 
 
-    $results = DB::select($rs_stmt1);
+    $results = DB::select($rs_stmt1, $bind);
 
     return $results;
 
@@ -172,6 +184,8 @@ public function scopesumspendcountdesc($query, $calculate_month_m, $calculate_mo
         $from = TRIM($from);
         $to = TRIM($to);
 
+        $bind = [];
+
         $rs_stmt1 = " SELECT p.calculate_id FROM   calculate p
          left join  shop s on p.shop_id=s.shop_id
 left join  manager m on s.manager_id=m.manager_id
@@ -181,44 +195,52 @@ left join  manager m on s.manager_id=m.manager_id
 
         if ($this->emp_job != 1) {
             $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
         if ($this->emp_job != 1) {
             if (Perm::get_function_access(75)) {
-                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = " . (int) $this->user_id . " ";
             }
         }
         if ($calculate_month_y != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_y = '$calculate_month_y ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_y = ? ";
+            $bind[] = $calculate_month_y;
         }
 
         if ($from  != "" and $to  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.created_at between '$from' and '$to'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.created_at between ? and ?  ";
+            $bind[] = $from;
+            $bind[] = $to;
         }
 
 
         if ($from  != "" and $to  == "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.created_at >= '$from'   ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.created_at >= ?   ";
+            $bind[] = $from;
         }
 
         if ($from  == "" and $to  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.created_at <= '$to'   ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.created_at <= ?   ";
+            $bind[] = $to;
         }
 
         if ($calculate_month_m != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_m = '$calculate_month_m ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_m = ? ";
+            $bind[] = $calculate_month_m;
         }
         if ($shop_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = '$shop_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = ? ";
+            $bind[] = $shop_id;
         }
         if ($manager_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  s.manager_id = '$manager_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  s.manager_id = ? ";
+            $bind[] = $manager_id;
         }
 
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -227,6 +249,7 @@ left join  manager m on s.manager_id=m.manager_id
         $calculate_month_m = TRIM($calculate_month_m);
         $calculate_month_y = TRIM($calculate_month_y);
 
+        $bind = [];
 
         $rs_stmt1 = " SELECT p.*,sh.shop_name,sh.shop_location,u.name,m.manager_name,
         cd.calculate_detail_id as calculate_detail_id,
@@ -249,38 +272,43 @@ left join  manager m on s.manager_id=m.manager_id
          ";
         if ($this->emp_job != 1) {
             $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
         if ($this->emp_job != 1) {
             if (Perm::get_function_access(75)) {
-                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = " . (int) $this->user_id . " ";
             }
         }
         if ($calculate_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_id = '$calculate_id ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_id = ? ";
+            $bind[] = $calculate_id;
         }
 
         if ($calculate_month_y != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_y = '$calculate_month_y ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_y = ? ";
+            $bind[] = $calculate_month_y;
         }
 
         if ($calculate_month_m != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_m = '$calculate_month_m ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_m = ? ";
+            $bind[] = $calculate_month_m;
         }
         if ($shop_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = '$shop_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = ? ";
+            $bind[] = $shop_id;
         }
         if ($manager_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  s.manager_id = '$manager_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  s.manager_id = ? ";
+            $bind[] = $manager_id;
         }
 
         $rs_stmt1 = $rs_stmt1 . "    group by p.calculate_id ";
 
 
 
-        $results = DB::select($rs_stmt1);
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }
@@ -294,9 +322,11 @@ left join  manager m on s.manager_id=m.manager_id
         $from = TRIM($from);
         $to = TRIM($to);
 
+        $bind = [];
+
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -330,52 +360,60 @@ left join  shop_municip sm on sh.shop_id=sm.shop_id
           ";
         if ($this->emp_job != 1) {
             $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
         if ($this->emp_job != 1) {
             if (Perm::get_function_access(75)) {
-                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = " . (int) $this->user_id . " ";
             }
         }
         if ($from  != "" and $to  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.created_at between '$from' and '$to'  ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.created_at between ? and ?  ";
+            $bind[] = $from;
+            $bind[] = $to;
         }
 
 
         if ($from  != "" and $to  == "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.created_at >= '$from'   ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.created_at >= ?   ";
+            $bind[] = $from;
         }
 
         if ($from  == "" and $to  != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.created_at <= '$to'   ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.created_at <= ?   ";
+            $bind[] = $to;
         }
 
 
 
 
         if ($calculate_month_y != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_y = '$calculate_month_y ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_y = ? ";
+            $bind[] = $calculate_month_y;
         }
 
         if ($calculate_month_m != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_m = '$calculate_month_m ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_month_m = ? ";
+            $bind[] = $calculate_month_m;
         }
         if ($shop_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = '$shop_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.shop_id = ? ";
+            $bind[] = $shop_id;
         }
         if ($manager_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  s.manager_id = '$manager_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  s.manager_id = ? ";
+            $bind[] = $manager_id;
         }
 
         $rs_stmt1 = $rs_stmt1 . "    group by p.calculate_id ";
 
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . "    limit $b,$a ";
+        $rs_stmt1 = $rs_stmt1 . "    limit " . (int) $b . "," . (int) $a . " ";
 
 
-        $results = DB::select($rs_stmt1);
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }
@@ -383,27 +421,29 @@ left join  shop_municip sm on sh.shop_id=sm.shop_id
     public function scopeserachspendcountdet($query, $calculate_id)
     {
         $calculate_id = TRIM($calculate_id);
+        $bind = [];
         $rs_stmt1 = " SELECT p.calculate_id
  FROM   calculate p
           join  shop s on p.shop_id=s.shop_id
 ";
         if ($this->emp_job != 1) {
             $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on s.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
         if ($this->emp_job != 1) {
             if (Perm::get_function_access(75)) {
-                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = " . (int) $this->user_id . " ";
             }
         }
         if ($calculate_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  calculate_id = '$calculate_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  calculate_id = ? ";
+            $bind[] = $calculate_id;
         }
 
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -413,9 +453,10 @@ left join  shop_municip sm on sh.shop_id=sm.shop_id
         $a = $_POST['length'];
         $b = $_POST['start'];
         $calculate_id = TRIM($calculate_id);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -449,22 +490,23 @@ left join  shop_municip sm on sh.shop_id=sm.shop_id
  ";
         if ($this->emp_job != 1) {
             $rs_stmt1 = $rs_stmt1 . "
-    join workers_manager wm on sh.manager_id=wm.manager_id and  wm.user_id=$this->user_id";
+    join workers_manager wm on sh.manager_id=wm.manager_id and  wm.user_id=" . (int) $this->user_id;
         }
         $rs_stmt1 = $rs_stmt1 . " where  1=1 and p.is_deleted=0 ";
 
         if ($this->emp_job != 1) {
             if (Perm::get_function_access(75)) {
-                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = $this->user_id ";
+                $rs_stmt1 = $rs_stmt1 . " and  p.create_user = " . (int) $this->user_id . " ";
             }
         }
         if ($calculate_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_id = '$calculate_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  p.calculate_id = ? ";
+            $bind[] = $calculate_id;
         }
 
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . " ORDER BY cd.calculate_detail_id desc limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . " ORDER BY cd.calculate_detail_id desc limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }

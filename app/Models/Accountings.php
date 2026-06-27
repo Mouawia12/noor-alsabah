@@ -23,20 +23,24 @@ class Accountings extends Model
     {
         $payments_month_m = TRIM($payments_month_m);
         $payments_month_y = TRIM($payments_month_y);
+        $bind = [];
         $rs_stmt1 = " SELECT payments_id FROM   payments where  1=1 and is_deleted=0   ";
 
         if ($payments_month_y != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  payments_month_y = '$payments_month_y' ";
+            $rs_stmt1 = $rs_stmt1 . " and  payments_month_y = ? ";
+            $bind[] = $payments_month_y;
         }
 
         if ($payments_month_m != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  payments_month_m = '$payments_month_m' ";
+            $rs_stmt1 = $rs_stmt1 . " and  payments_month_m = ? ";
+            $bind[] = $payments_month_m;
         }
         if ($worker_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  worker_id = '$worker_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  worker_id = ? ";
+            $bind[] = $worker_id;
         }
 
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -47,9 +51,10 @@ class Accountings extends Model
         $b = $_POST['start'];
         $payments_month_m = TRIM($payments_month_m);
         $payments_month_y = TRIM($payments_month_y);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -68,19 +73,22 @@ class Accountings extends Model
          where  1=1 and is_deleted=0  ";
 
         if ($payments_month_y != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  payments_month_y = '$payments_month_y ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  payments_month_y = ? ";
+            $bind[] = $payments_month_y;
         }
 
         if ($payments_month_m != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  payments_month_m = '$payments_month_m ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  payments_month_m = ? ";
+            $bind[] = $payments_month_m;
         }
         if ($worker_id != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  worker_id = '$worker_id' ";
+            $rs_stmt1 = $rs_stmt1 . " and  worker_id = ? ";
+            $bind[] = $worker_id;
         }
 
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }
@@ -89,15 +97,18 @@ class Accountings extends Model
     {
         $payments_month_m = TRIM($payments_month_m);
         $payments_month_y = TRIM($payments_month_y);
+        $bind = [];
         $rs_stmt1 = " SELECT payments_month_id FROM   payments_month where  1=1  ";
         if ($payments_month_y != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  payments_month_y = '$payments_month_y ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  payments_month_y = ? ";
+            $bind[] = $payments_month_y;
         }
 
         if ($payments_month_m != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  payments_month_m = '$payments_month_m ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  payments_month_m = ? ";
+            $bind[] = $payments_month_m;
         }
-        $results = count(DB::select($rs_stmt1));
+        $results = count(DB::select($rs_stmt1, $bind));
         return $results;
     }
 
@@ -108,9 +119,10 @@ class Accountings extends Model
         $b = $_POST['start'];
         $payments_month_m = TRIM($payments_month_m);
         $payments_month_y = TRIM($payments_month_y);
+        $bind = [];
         if (isset($_POST['order'])) {
-            $columnName = $_POST['order']['0']['column'];
-            $columnSortOrder = $_POST['order']['0']['dir'];
+            $columnName = (int) ($_POST['order']['0']['column'] ?? 0);
+            $columnSortOrder = (strtolower($_POST['order']['0']['dir'] ?? '') === 'asc') ? 'asc' : 'desc';
             if ($columnName != 0) {
                 $ord = " order by  " . $columnName . " " . $columnSortOrder;
             } else {
@@ -124,16 +136,18 @@ class Accountings extends Model
         $rs_stmt1 = " SELECT * FROM   payments_month where  1=1  ";
 
         if ($payments_month_y != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  payments_month_y = '$payments_month_y ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  payments_month_y = ? ";
+            $bind[] = $payments_month_y;
         }
 
         if ($payments_month_m != "") {
-            $rs_stmt1 = $rs_stmt1 . " and  payments_month_m = '$payments_month_m ' ";
+            $rs_stmt1 = $rs_stmt1 . " and  payments_month_m = ? ";
+            $bind[] = $payments_month_m;
         }
 
         $rs_stmt1 = $rs_stmt1 . $ord;
-        $rs_stmt1 = $rs_stmt1 . "  limit $b,$a ";
-        $results = DB::select($rs_stmt1);
+        $rs_stmt1 = $rs_stmt1 . "  limit " . (int) $b . "," . (int) $a . " ";
+        $results = DB::select($rs_stmt1, $bind);
 
         return $results;
     }
