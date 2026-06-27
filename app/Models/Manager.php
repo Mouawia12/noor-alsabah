@@ -12,7 +12,6 @@ class Manager extends Model
 {
     use HasFactory;
 
-    protected $fillabel = ['manager_name', 'ssn', 'work_place_id', 'note', 'doe', 'created_at', 'create_user', 'updated_at', 'updated_user'];
     protected $guarded = ['manager_id'];
     protected $primaryKey = 'manager_id';
     protected $table = "manager";

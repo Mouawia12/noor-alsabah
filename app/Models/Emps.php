@@ -13,7 +13,6 @@ class Emps extends Model
 {
     use HasFactory;
 
-    protected $fillabel = ['worker_name', 'phone', 'email', 'remarks', 'updated_at', 'created_at'];
     protected $guarded = ['worker_id'];
     protected $primaryKey = 'worker_id';
     // public $incrementing = false;

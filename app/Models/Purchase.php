@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\DB;
 class Purchase extends Model
 {
     use HasFactory;
-    protected $guarded = [];
+    // أمن: حماية المفتاح الأساسي من الإسناد الجماعي (كان $guarded = [] يفتح كل الأعمدة)
+    protected $guarded = ['purchase_id'];
 
     protected $primaryKey = 'purchase_id';
     // public $incrementing = false;

@@ -9,7 +9,6 @@ use Illuminate\Support\Facades\DB;
 class Vacation extends Model
 {
     use HasFactory;
-  //  protected $fillabel = ['worker_name','ssn','work_place_id','note','doe','created_at','create_user','updated_at','updated_user'];
    // protected $guarded = ['worker_id'];
    // protected $primaryKey = 'worker_id';
    // public $incrementing = false;

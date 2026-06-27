@@ -17,7 +17,6 @@ class Expense extends Model
 {
     use HasFactory;
 
-    protected $fillabel = ['expense_name', 'ssn', 'work_place_id', 'note', 'doe', 'created_at', 'create_user', 'updated_at', 'updated_user', 'update_user'];
     protected $guarded = ['expense_id'];
     protected $primaryKey = 'expense_id';
     protected $table = "expense";

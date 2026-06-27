@@ -13,7 +13,6 @@ class Constant extends Model
 {
     use HasFactory;
 
-    protected $fillabel = ['constant_name', 'ssn', 'work_place_id', 'note', 'doe', 'created_at', 'create_user', 'updated_at', 'updated_user'];
     protected $guarded = ['constant_id'];
     protected $primaryKey = 'constant_id';
     // public $incrementing = false;

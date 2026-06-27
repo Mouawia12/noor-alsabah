@@ -16,7 +16,6 @@ class Moraslat extends Model
 {
     use HasFactory;
 
-    protected $fillabel = ['moraslat_name', 'ssn', 'work_place_id', 'note', 'doe', 'created_at', 'create_user', 'updated_at', 'updated_user'];
     protected $guarded = ['moraslat_id'];
     protected $primaryKey = 'moraslat_id';
     // public $incrementing = false;
