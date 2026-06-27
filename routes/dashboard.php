@@ -12,6 +12,7 @@ use App\Http\Controllers\Dashboard\ShopController;
 use App\Http\Controllers\Dashboard\ManagerController;
 use App\Http\Controllers\Dashboard\PurchaseController;
 use App\Http\Controllers\Dashboard\PurchaseAiController;
+use App\Http\Controllers\Dashboard\RentAiController;
 use App\Http\Controllers\Dashboard\ExpenseController;
 use App\Http\Controllers\Dashboard\ConstantController;
 use App\Http\Controllers\Dashboard\MoraslatController;
@@ -318,6 +319,15 @@ Route::group([
         Route::get('/purchase/ai/batch/{batch}/json', [PurchaseAiController::class, 'batchJson'])->name('purchase.ai.batch.json');
         Route::post('/purchase/ai/item/{item}/approve', [PurchaseAiController::class, 'approve'])->name('purchase.ai.approve');
         Route::post('/purchase/ai/item/{item}/reject', [PurchaseAiController::class, 'reject'])->name('purchase.ai.reject');
+
+        // ===== استيراد عقود الإيجار بالذكاء الاصطناعي =====
+        Route::get('/rent/ai', [RentAiController::class, 'index'])->name('rent.ai.index');
+        Route::post('/rent/ai/upload', [RentAiController::class, 'store'])->name('rent.ai.store');
+        Route::get('/rent/ai/review', [RentAiController::class, 'review'])->name('rent.ai.review');
+        Route::get('/rent/ai/batch/{batch}', [RentAiController::class, 'batch'])->name('rent.ai.batch');
+        Route::get('/rent/ai/batch/{batch}/json', [RentAiController::class, 'batchJson'])->name('rent.ai.batch.json');
+        Route::post('/rent/ai/item/{item}/approve', [RentAiController::class, 'approve'])->name('rent.ai.approve');
+        Route::post('/rent/ai/item/{item}/reject', [RentAiController::class, 'reject'])->name('rent.ai.reject');
 
         Route::resource('/purchase', purchaseController::class);
         Route::post('/purchase/print', [purchaseController::class, 'print'])->name('purchase.print');

@@ -323,6 +323,20 @@
                         </a>
                     </div>
                     <?php } ?>
+                    <div class="menu-item">
+                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.rent.ai.index') active @endif"
+                           href="{{ route('dashboard.rent.ai.index') }}">
+                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                            <span class="menu-title text-dark">استيراد عقود الإيجار بالذكاء الاصطناعي</span>
+                        </a>
+                    </div>
+                    <div class="menu-item">
+                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.rent.ai.review') active @endif"
+                           href="{{ route('dashboard.rent.ai.review') }}">
+                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                            <span class="menu-title text-dark">مراجعة العقود المستخرجة</span>
+                        </a>
+                    </div>
 
                 </div>
             </div>
