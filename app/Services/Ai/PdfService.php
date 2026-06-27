@@ -7,14 +7,17 @@ use setasign\Fpdi\Fpdi;
 
 /**
  * معالجة ملفات PDF: عدّ الصفحات وتحويلها إلى صور (للإرسال لمحرك الرؤية).
- * يتطلب امتداد Imagick + Ghostscript على السيرفر لتحويل PDF إلى صور.
+ * يدعم عدة أدوات للتحويل بترتيب الأفضلية (قابلية نقل عبر بيئات الاستضافة):
+ *   1) pdftoppm (poppler)   2) magick/convert (ImageMagick CLI)
+ *   3) امتداد PHP Imagick    4) gs (Ghostscript)
  */
 class PdfService
 {
-    /** هل بيئة تحويل الصور متاحة؟ */
+    /** هل تتوفّر أي وسيلة لتحويل PDF إلى صور؟ */
     public static function canRasterize(): bool
     {
-        return extension_loaded('imagick');
+        return self::bin('pdftoppm') || self::bin('magick') || self::bin('convert')
+            || extension_loaded('imagick') || self::bin('gs');
     }
 
     /** عدد صفحات ملف PDF. */
@@ -22,72 +25,166 @@ class PdfService
     {
         $this->assertFile($pdfPath);
 
+        // 1) FPDI
         try {
             $pdf = new Fpdi();
             return $pdf->setSourceFile($pdfPath);
         } catch (\Throwable $e) {
-            // ملفات بعض الفواتير قد تكون صوراً مدمجة لا يقرأها FPDI — جرّب Imagick
-            if (self::canRasterize()) {
-                $im = new \Imagick();
-                $im->pingImage($pdfPath);
-                $n = $im->getNumberImages();
-                $im->clear();
-                return $n;
-            }
-            throw new RuntimeException('تعذّر تحديد عدد صفحات PDF: ' . $e->getMessage(), 0, $e);
+            // تجاهل وجرّب البدائل
         }
+
+        // 2) pdfinfo (poppler)
+        if ($bin = self::bin('pdfinfo')) {
+            $out = shell_exec(escapeshellarg($bin) . ' ' . escapeshellarg($pdfPath) . ' 2>/dev/null');
+            if ($out && preg_match('/Pages:\s+(\d+)/', $out, $m)) {
+                return (int) $m[1];
+            }
+        }
+
+        // 3) امتداد Imagick
+        if (extension_loaded('imagick')) {
+            $im = new \Imagick();
+            $im->pingImage($pdfPath);
+            $n = $im->getNumberImages();
+            $im->clear();
+            return $n;
+        }
+
+        throw new RuntimeException('تعذّر تحديد عدد صفحات PDF.');
     }
 
     /**
-     * تحويل كل صفحات PDF إلى صور PNG في مجلد، وإرجاع مسارات الصور مرتّبة.
+     * تحويل كل صفحات PDF إلى صور PNG في مجلد، وإرجاع مساراتها مرتّبة.
      *
-     * @return string[] مسارات الصور (واحدة لكل صفحة)
+     * @return string[]
      */
     public function rasterizeAll(string $pdfPath, string $outDir, ?int $dpi = null): array
     {
         $this->assertFile($pdfPath);
-
-        if (! self::canRasterize()) {
-            throw new RuntimeException('امتداد Imagick غير متوفّر — مطلوب لتحويل صفحات PDF إلى صور.');
-        }
-
         $dpi = $dpi ?? (int) config('ai.pdf_render_dpi', 200);
+
         if (! is_dir($outDir)) {
             mkdir($outDir, 0775, true);
         }
 
-        $count = $this->pageCount($pdfPath);
-        $paths = [];
-
-        for ($i = 0; $i < $count; $i++) {
-            $out = rtrim($outDir, '/') . '/page_' . ($i + 1) . '.png';
-            $this->rasterizePage($pdfPath, $i, $out, $dpi);
-            $paths[] = $out;
+        // 1) pdftoppm — الأفضل (لا يحتاج Ghostscript)
+        if ($bin = self::bin('pdftoppm')) {
+            return $this->viaPdftoppm($bin, $pdfPath, $outDir, $dpi);
         }
 
+        // 2) magick / convert (ImageMagick CLI)
+        if (($bin = self::bin('magick')) || ($bin = self::bin('convert'))) {
+            return $this->viaMagickCli($bin, $pdfPath, $outDir, $dpi);
+        }
+
+        // 3) امتداد Imagick
+        if (extension_loaded('imagick')) {
+            return $this->viaImagickExt($pdfPath, $outDir, $dpi);
+        }
+
+        // 4) Ghostscript
+        if ($bin = self::bin('gs')) {
+            return $this->viaGhostscript($bin, $pdfPath, $outDir, $dpi);
+        }
+
+        throw new RuntimeException('لا تتوفّر أي أداة لتحويل PDF إلى صور (pdftoppm/magick/imagick/gs).');
+    }
+
+    protected function viaPdftoppm(string $bin, string $pdf, string $outDir, int $dpi): array
+    {
+        $prefix = rtrim($outDir, '/') . '/page';
+        $cmd = sprintf('%s -png -r %d %s %s 2>&1', escapeshellarg($bin), $dpi, escapeshellarg($pdf), escapeshellarg($prefix));
+        exec($cmd, $o, $code);
+        if ($code !== 0) {
+            throw new RuntimeException('فشل pdftoppm: ' . implode("\n", $o));
+        }
+        $files = glob($prefix . '-*.png') ?: [];
+        natsort($files);
+        return $this->normalizeNames(array_values($files), $outDir);
+    }
+
+    protected function viaMagickCli(string $bin, string $pdf, string $outDir, int $dpi): array
+    {
+        $count = $this->pageCount($pdf);
+        $paths = [];
+        for ($i = 0; $i < $count; $i++) {
+            $out = rtrim($outDir, '/') . '/page_' . ($i + 1) . '.png';
+            $cmd = sprintf(
+                '%s -density %d %s[%d] -background white -flatten %s 2>&1',
+                escapeshellarg($bin), $dpi, escapeshellarg($pdf), $i, escapeshellarg($out)
+            );
+            exec($cmd, $o, $code);
+            if ($code !== 0 || ! is_file($out)) {
+                throw new RuntimeException('فشل magick: ' . implode("\n", (array) $o));
+            }
+            $paths[] = $out;
+        }
         return $paths;
     }
 
-    /** تحويل صفحة واحدة (0-based) إلى صورة PNG. */
-    public function rasterizePage(string $pdfPath, int $pageIndex, string $outPath, ?int $dpi = null): string
+    protected function viaImagickExt(string $pdf, string $outDir, int $dpi): array
     {
-        if (! self::canRasterize()) {
-            throw new RuntimeException('امتداد Imagick غير متوفّر.');
+        $count = $this->pageCount($pdf);
+        $paths = [];
+        for ($i = 0; $i < $count; $i++) {
+            $out = rtrim($outDir, '/') . '/page_' . ($i + 1) . '.png';
+            $im = new \Imagick();
+            $im->setResolution($dpi, $dpi);
+            $im->readImage($pdf . '[' . $i . ']');
+            $im->setImageFormat('png');
+            $im->setImageBackgroundColor('white');
+            $im = $im->flattenImages();
+            $im->writeImage($out);
+            $im->clear();
+            $im->destroy();
+            $paths[] = $out;
         }
+        return $paths;
+    }
 
-        $dpi = $dpi ?? (int) config('ai.pdf_render_dpi', 200);
+    protected function viaGhostscript(string $bin, string $pdf, string $outDir, int $dpi): array
+    {
+        $pattern = rtrim($outDir, '/') . '/page_%d.png';
+        $cmd = sprintf(
+            '%s -dNOPAUSE -dBATCH -sDEVICE=png16m -r%d -sOutputFile=%s %s 2>&1',
+            escapeshellarg($bin), $dpi, escapeshellarg($pattern), escapeshellarg($pdf)
+        );
+        exec($cmd, $o, $code);
+        if ($code !== 0) {
+            throw new RuntimeException('فشل gs: ' . implode("\n", $o));
+        }
+        $files = glob(rtrim($outDir, '/') . '/page_*.png') ?: [];
+        natsort($files);
+        return array_values($files);
+    }
 
-        $im = new \Imagick();
-        $im->setResolution($dpi, $dpi);
-        $im->readImage($pdfPath . '[' . $pageIndex . ']'); // صفحة محددة
-        $im->setImageFormat('png');
-        $im->setImageBackgroundColor('white');
-        $im = $im->flattenImages(); // إزالة الشفافية
-        $im->writeImage($outPath);
-        $im->clear();
-        $im->destroy();
+    /** توحيد أسماء الصور إلى page_1.png, page_2.png ... */
+    protected function normalizeNames(array $files, string $outDir): array
+    {
+        $paths = [];
+        foreach (array_values($files) as $idx => $f) {
+            $target = rtrim($outDir, '/') . '/page_' . ($idx + 1) . '.png';
+            if ($f !== $target) {
+                @rename($f, $target);
+            }
+            $paths[] = $target;
+        }
+        return $paths;
+    }
 
-        return $outPath;
+    /** إيجاد مسار أداة سطر أوامر (مع مسارات شائعة احتياطية). */
+    protected static function bin(string $name): ?string
+    {
+        $path = trim((string) @shell_exec('command -v ' . escapeshellarg($name) . ' 2>/dev/null'));
+        if ($path !== '' && is_executable($path)) {
+            return $path;
+        }
+        foreach (['/usr/bin/', '/usr/local/bin/', '/opt/homebrew/bin/'] as $dir) {
+            if (is_executable($dir . $name)) {
+                return $dir . $name;
+            }
+        }
+        return null;
     }
 
     protected function assertFile(string $path): void
