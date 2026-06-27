@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\Ai\ExtractionManager;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -13,7 +14,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        //
+        // مدير محرك استخراج الذكاء الاصطناعي (معزول/قابل للتبديل)
+        $this->app->singleton(ExtractionManager::class, fn () => new ExtractionManager());
     }
 
     /**
