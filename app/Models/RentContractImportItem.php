@@ -27,6 +27,7 @@ class RentContractImportItem extends Model
     public const STATUS_APPROVED     = 'approved';
     public const STATUS_REJECTED     = 'rejected';
     public const STATUS_FAILED       = 'failed';
+    public const STATUS_MERGED       = 'merged'; // صفحة تكملة دُمجت مع عقدها (مخفية)
 
     public function batch(): BelongsTo
     {

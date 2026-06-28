@@ -120,20 +120,17 @@ class ProcessPurchaseItemJob implements ShouldQueue
 
         $batch->refresh();
         if (($batch->processed_items + $batch->failed_items) >= $batch->total_items && $batch->total_items > 0) {
-            $batch->update(['status' => PurchaseImportBatch::STATUS_COMPLETED]);
-            $this->cleanupWorkDir($batch->id);
-            $this->notifyUploader($batch);
-        }
-    }
+            // دمج صفحات التكملة مع فواتيرها (لا تظهر صفحة فارغة كفاتورة)
+            $items = PurchaseImportItem::where('batch_id', $batch->id)
+                ->where('status', PurchaseImportItem::STATUS_NEEDS_REVIEW)
+                ->orderBy('page_from')->get();
+            $docs = app(\App\Services\Ai\PageMergeService::class)->merge(
+                $items, ['invoice_no'], ['total', 'amount_before_tax'], PurchaseImportItem::STATUS_MERGED
+            );
 
-    /** حذف صور الصفحات المؤقتة بعد اكتمال الدفعة (تفادي امتلاء القرص). */
-    protected function cleanupWorkDir(int $batchId): void
-    {
-        try {
-            \Illuminate\Support\Facades\Storage::disk(config('ai.disk'))
-                ->deleteDirectory('purchase/work/' . $batchId);
-        } catch (\Throwable $e) {
-            // التنظيف ليس حرجاً — لا نُفشل المهمة بسببه
+            $batch->update(['status' => PurchaseImportBatch::STATUS_COMPLETED]);
+            AiAuditLog::record('purchase_batch', $batch->id, 'merged', ['documents' => $docs], $batch->create_user);
+            $this->notifyUploader($batch);
         }
     }
 

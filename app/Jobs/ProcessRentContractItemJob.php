@@ -101,13 +101,17 @@ class ProcessRentContractItemJob implements ShouldQueue
         $processed ? $batch->increment('processed_items') : $batch->increment('failed_items');
         $batch->refresh();
         if (($batch->processed_items + $batch->failed_items) >= $batch->total_items && $batch->total_items > 0) {
+            // دمج صفحات التكملة مع عقودها (صفحة التوقيع لا تظهر كعقد فارغ)
+            $items = RentContractImportItem::where('batch_id', $batch->id)
+                ->where('status', RentContractImportItem::STATUS_NEEDS_REVIEW)
+                ->orderBy('page_from')->get();
+            $docs = app(\App\Services\Ai\PageMergeService::class)->merge(
+                $items, ['contract_no'], ['rent_value', 'payment_amount'], RentContractImportItem::STATUS_MERGED
+            );
+
             $batch->update(['status' => RentContractImportBatch::STATUS_COMPLETED]);
-            try {
-                \Illuminate\Support\Facades\Storage::disk(config('ai.disk'))
-                    ->deleteDirectory('rent/work/' . $batch->id);
-            } catch (\Throwable $e) {
-                // التنظيف ليس حرجاً
-            }
+            AiAuditLog::record('rent_batch', $batch->id, 'merged', ['documents' => $docs], $batch->create_user);
+
             $user = $batch->create_user ? \App\Models\User::find($batch->create_user) : null;
             if ($user && $user->email) {
                 $user->notify(new \App\Notifications\BatchCompletedNotification(
