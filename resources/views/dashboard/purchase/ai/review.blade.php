@@ -10,127 +10,148 @@
 
     @php $threshold = (float) config('ai.confidence_threshold', 0.8); @endphp
 
-    @forelse ($items as $item)
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">الفواتير المستخرجة بانتظار المراجعة ({{ $items->total() }})</h3>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-row-bordered table-hover align-middle">
+                    <thead>
+                        <tr class="fw-bold text-muted bg-light">
+                            <th>#</th>
+                            <th>الملف / الصفحات</th>
+                            <th>رقم الفاتورة</th>
+                            <th>المورد</th>
+                            <th>الإجمالي</th>
+                            <th>الثقة</th>
+                            <th>الإجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($items as $i => $item)
+                            @php
+                                $d = $item->extracted_json['data'] ?? [];
+                                $conf = $item->confidence;
+                                $low = $conf !== null && $conf < $threshold;
+                            @endphp
+                            <tr>
+                                <td>{{ $items->firstItem() + $i }}</td>
+                                <td>{{ \Illuminate\Support\Str::limit($item->batch->original_filename ?? '—', 22) }}
+                                    <span class="text-muted fs-8">(ص {{ $item->page_from }}–{{ $item->page_to }})</span></td>
+                                <td class="fw-bold">{{ $d['invoice_no'] ?? '—' }}</td>
+                                <td>{{ \Illuminate\Support\Str::limit($d['supplier_name'] ?? '—', 20) }}</td>
+                                <td>{{ $d['total'] ?? '—' }}</td>
+                                <td>
+                                    @if ($conf !== null)<span class="badge badge-light-{{ $low ? 'danger' : 'success' }}">{{ round($conf * 100) }}%</span>@endif
+                                    @if ($item->is_duplicate)<span class="badge badge-light-danger">مكرر؟</span>@endif
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#purModal{{ $item->id }}">
+                                        مراجعة / تعديل
+                                    </button>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="7" class="text-center text-muted py-5">لا توجد فواتير بانتظار المراجعة.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex justify-content-center mt-3">{{ $items->links() }}</div>
+        </div>
+    </div>
+
+    {{-- نوافذ المراجعة/التعديل المنبثقة --}}
+    @foreach ($items as $item)
         @php
             $d = $item->extracted_json['data'] ?? [];
             $fc = $item->field_confidence ?? [];
             $supplier = $item->extracted_json['supplier'] ?? [];
             $validation = $item->extracted_json['validation'] ?? [];
             $conf = $item->confidence;
-            $lowConf = $conf !== null && $conf < $threshold;
             $pages = count(array_filter(explode(',', (string) $item->source_file_path)));
-            // فئة حدّ أحمر للحقول منخفضة الثقة
             $cls = fn ($f) => (isset($fc[$f]) && $fc[$f] < $threshold) ? 'border border-danger' : '';
         @endphp
-
-        <div class="card mb-5">
-            <div class="card-header">
-                <h3 class="card-title">
-                    فاتورة من: {{ $item->batch->original_filename ?? '—' }}
-                    <span class="text-muted fs-7">(صفحات {{ $item->page_from }}–{{ $item->page_to }})</span>
-                </h3>
-                <div class="card-toolbar gap-2">
-                    @if ($conf !== null)
-                        <span class="badge badge-light-{{ $lowConf ? 'danger' : 'success' }}">الثقة: {{ round($conf * 100) }}%</span>
-                    @endif
-                    @if ($item->is_duplicate)
-                        <span class="badge badge-light-danger">فاتورة مكررة محتملة (سجل #{{ $item->duplicate_of_purchase_id }})</span>
-                    @endif
-                </div>
-            </div>
-
-            <div class="card-body">
-                <div class="row g-5">
-                    {{-- صورة المستند الأصلي --}}
-                    <div class="col-lg-5">
-                        <div class="border rounded p-2 bg-light" style="max-height:520px; overflow:auto;">
-                            @for ($p = 0; $p < max(1, $pages); $p++)
-                                <a href="{{ route('dashboard.purchase.ai.image', ['item' => $item->id, 'page' => $p]) }}" target="_blank">
-                                    <img src="{{ route('dashboard.purchase.ai.image', ['item' => $item->id, 'page' => $p]) }}"
-                                         class="img-fluid mb-2 rounded shadow-sm" alt="صفحة {{ $p + 1 }}"
-                                         onerror="this.style.display='none'">
-                                </a>
-                            @endfor
-                        </div>
-                        <div class="form-text">اضغط الصورة لفتحها بالحجم الكامل.</div>
+        <div class="modal fade" id="purModal{{ $item->id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 class="modal-title">
+                            مراجعة فاتورة — {{ $item->batch->original_filename ?? '' }}
+                            @if ($conf !== null)<span class="badge badge-light-{{ $conf < $threshold ? 'danger' : 'success' }} ms-2">الثقة {{ round($conf * 100) }}%</span>@endif
+                            @if ($item->is_duplicate)<span class="badge badge-light-danger ms-2">مكررة محتملة (#{{ $item->duplicate_of_purchase_id }})</span>@endif
+                        </h3>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
-
-                    {{-- الحقول --}}
-                    <div class="col-lg-7">
+                    <div class="modal-body">
                         @if (! empty($validation['issues']))
-                            <div class="alert alert-warning">
-                                <b>ملاحظات التحقق:</b>
-                                <ul class="mb-0">@foreach ($validation['issues'] as $iss)<li>{{ $iss }}</li>@endforeach</ul>
-                            </div>
+                            <div class="alert alert-warning"><b>ملاحظات التحقق:</b>
+                                <ul class="mb-0">@foreach ($validation['issues'] as $iss)<li>{{ $iss }}</li>@endforeach</ul></div>
                         @endif
-
-                        <form action="{{ route('dashboard.purchase.ai.approve', $item->id) }}" method="POST" id="frm-{{ $item->id }}">
-                            @csrf
-                            <div class="row g-4">
-                                <div class="col-md-6">
-                                    <label class="form-label">رقم الفاتورة</label>
-                                    <input type="text" name="invoice_no" class="form-control {{ $cls('invoice_no') }}" value="{{ $d['invoice_no'] ?? '' }}">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">تاريخ الفاتورة</label>
-                                    <input type="text" name="invoice_date" class="form-control {{ $cls('invoice_date') }}" value="{{ $d['invoice_date'] ?? '' }}" placeholder="YYYY-MM-DD">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">الرقم الضريبي</label>
-                                    <input type="text" name="tax_number" class="form-control {{ $cls('tax_number') }}" value="{{ $d['tax_number'] ?? '' }}">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">العملة</label>
-                                    <input type="text" name="currency" class="form-control {{ $cls('currency') }}" value="{{ $d['currency'] ?? '' }}">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">قبل الضريبة</label>
-                                    <input type="number" step="0.01" name="amount_before_tax" class="form-control {{ $cls('amount_before_tax') }}" value="{{ $d['amount_before_tax'] ?? '' }}">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">الضريبة</label>
-                                    <input type="number" step="0.01" name="tax_amount" class="form-control {{ $cls('tax_amount') }}" value="{{ $d['tax_amount'] ?? '' }}">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">الإجمالي</label>
-                                    <input type="number" step="0.01" name="total" class="form-control {{ $cls('total') }}" value="{{ $d['total'] ?? '' }}">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">المورد</label>
-                                    @if (! empty($supplier['matched']))
-                                        <input type="hidden" name="supplier_id" value="{{ $supplier['supplier_id'] }}">
-                                        <input type="text" class="form-control" value="{{ $supplier['suggestion'] }} (مطابق)" disabled>
-                                    @else
-                                        <input type="text" name="new_supplier_name" class="form-control" value="{{ $d['supplier_name'] ?? '' }}" placeholder="اسم مورد جديد">
-                                        @if (! empty($supplier['suggestion']))<div class="form-text">اقتراح قريب: {{ $supplier['suggestion'] }}</div>@endif
-                                    @endif
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">ملاحظات</label>
-                                    <input type="text" name="note" class="form-control" value="{{ $d['note'] ?? '' }}">
+                        <div class="row g-5">
+                            <div class="col-lg-5">
+                                <div class="border rounded p-2 bg-light" style="max-height:60vh; overflow:auto;">
+                                    @for ($p = 0; $p < max(1, $pages); $p++)
+                                        <img data-src="{{ route('dashboard.purchase.ai.image', ['item' => $item->id, 'page' => $p]) }}"
+                                             class="img-fluid mb-2 rounded shadow-sm lazy-doc" alt="صفحة {{ $p + 1 }}" onerror="this.style.display='none'">
+                                    @endfor
                                 </div>
                             </div>
+                            <div class="col-lg-7">
+                                <form action="{{ route('dashboard.purchase.ai.approve', $item->id) }}" method="POST" id="purfrm{{ $item->id }}">
+                                    @csrf
+                                    <div class="row g-4">
+                                        <div class="col-md-6"><label class="form-label">رقم الفاتورة</label>
+                                            <input type="text" name="invoice_no" class="form-control {{ $cls('invoice_no') }}" value="{{ $d['invoice_no'] ?? '' }}"></div>
+                                        <div class="col-md-6"><label class="form-label">تاريخ الفاتورة</label>
+                                            <input type="text" name="invoice_date" class="form-control {{ $cls('invoice_date') }}" value="{{ $d['invoice_date'] ?? '' }}" placeholder="YYYY-MM-DD"></div>
+                                        <div class="col-md-6"><label class="form-label">الرقم الضريبي</label>
+                                            <input type="text" name="tax_number" class="form-control {{ $cls('tax_number') }}" value="{{ $d['tax_number'] ?? '' }}"></div>
+                                        <div class="col-md-6"><label class="form-label">العملة</label>
+                                            <input type="text" name="currency" class="form-control {{ $cls('currency') }}" value="{{ $d['currency'] ?? '' }}"></div>
+                                        <div class="col-md-4"><label class="form-label">قبل الضريبة</label>
+                                            <input type="number" step="0.01" name="amount_before_tax" class="form-control {{ $cls('amount_before_tax') }}" value="{{ $d['amount_before_tax'] ?? '' }}"></div>
+                                        <div class="col-md-4"><label class="form-label">الضريبة</label>
+                                            <input type="number" step="0.01" name="tax_amount" class="form-control {{ $cls('tax_amount') }}" value="{{ $d['tax_amount'] ?? '' }}"></div>
+                                        <div class="col-md-4"><label class="form-label">الإجمالي</label>
+                                            <input type="number" step="0.01" name="total" class="form-control {{ $cls('total') }}" value="{{ $d['total'] ?? '' }}"></div>
+                                        <div class="col-md-6"><label class="form-label">المورد</label>
+                                            @if (! empty($supplier['matched']))
+                                                <input type="hidden" name="supplier_id" value="{{ $supplier['supplier_id'] }}">
+                                                <input type="text" class="form-control" value="{{ $supplier['suggestion'] }} (مطابق)" disabled>
+                                            @else
+                                                <input type="text" name="new_supplier_name" class="form-control" value="{{ $d['supplier_name'] ?? '' }}" placeholder="اسم مورد جديد">
+                                            @endif
+                                        </div>
+                                        <div class="col-md-6"><label class="form-label">ملاحظات</label>
+                                            <input type="text" name="note" class="form-control" value="{{ $d['note'] ?? '' }}"></div>
+                                    </div>
+                                </form>
+                                <div class="form-text mt-2">الحقول ذات الإطار الأحمر منخفضة الثقة — راجعها مقابل الصورة.</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <form action="{{ route('dashboard.purchase.ai.reject', $item->id) }}" method="POST" onsubmit="return confirm('تأكيد رفض هذه الفاتورة؟');">
+                            @csrf<input type="hidden" name="reason" value="رُفضت يدوياً من المراجعة">
+                            <button type="submit" class="btn btn-light-danger">رفض</button>
                         </form>
-                        <div class="form-text mt-2">الحقول ذات الإطار الأحمر منخفضة الثقة — راجعها مقابل الصورة.</div>
+                        <button type="submit" form="purfrm{{ $item->id }}" class="btn btn-success">اعتماد وإنشاء سجل مشتريات</button>
                     </div>
                 </div>
-            </div>
-
-            <div class="card-footer d-flex justify-content-end gap-2">
-                <form action="{{ route('dashboard.purchase.ai.reprocess', $item->id) }}" method="POST">
-                    @csrf<button type="submit" class="btn btn-light">إعادة الاستخراج</button>
-                </form>
-                <form action="{{ route('dashboard.purchase.ai.reject', $item->id) }}" method="POST" onsubmit="return confirm('تأكيد رفض هذه الفاتورة؟');">
-                    @csrf<input type="hidden" name="reason" value="رُفضت يدوياً من المراجعة">
-                    <button type="submit" class="btn btn-light-danger">رفض</button>
-                </form>
-                <button type="submit" form="frm-{{ $item->id }}" class="btn btn-success">اعتماد وإنشاء سجل مشتريات</button>
             </div>
         </div>
-    @empty
-        <div class="card"><div class="card-body text-center text-muted">لا توجد فواتير بانتظار المراجعة.</div></div>
-    @endforelse
+    @endforeach
 
-    <div class="d-flex justify-content-center">{{ $items->links() }}</div>
+@endsection
 
+@section('scripts')
+<script>
+document.addEventListener('show.bs.modal', function (e) {
+    e.target.querySelectorAll('img.lazy-doc[data-src]').forEach(function (img) {
+        if (!img.src) { img.src = img.getAttribute('data-src'); }
+    });
+});
+</script>
 @endsection
