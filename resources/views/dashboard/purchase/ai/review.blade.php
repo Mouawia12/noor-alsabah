@@ -108,61 +108,39 @@
 
 @section('scripts')
 <script>
-jQuery(function ($) {
+(function () {
+    'use strict';
     var CSRF = '{{ csrf_token() }}';
-    $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': CSRF, 'X-Requested-With': 'XMLHttpRequest' } });
+    function ready(fn){ if(document.readyState!=='loading'){fn();} else {document.addEventListener('DOMContentLoaded',fn);} }
+    function toast(msg, ok){ var t=document.getElementById('toaster'); if(!t) return alert(msg);
+        var d=document.createElement('div'); d.className='alert alert-'+(ok===false?'danger':'success')+' shadow'; d.textContent=msg; t.appendChild(d); setTimeout(function(){d.remove();},4000); }
+    function hideModal(id){ var m=document.getElementById('purModal'+id); if(!m) return;
+        if(window.bootstrap&&bootstrap.Modal){var i=bootstrap.Modal.getInstance(m); if(i){i.hide();return;}}
+        var b=m.querySelector('[data-bs-dismiss="modal"]'); if(b) b.click(); }
+    function removeRow(id){ var tr=document.querySelector('tr[data-item="'+id+'"]'); if(tr) tr.remove(); hideModal(id);
+        var c=document.getElementById('reviewCount'); if(c) c.textContent=Math.max(0,(parseInt(c.textContent)||0)-1); }
+    function post(url, body){ return fetch(url,{method:'POST',credentials:'same-origin',
+        headers:{'X-CSRF-TOKEN':CSRF,'X-Requested-With':'XMLHttpRequest','Accept':'application/json','Content-Type':'application/json'}, body:JSON.stringify(body||{})})
+        .then(function(r){ return r.text().then(function(t){ var j; try{j=JSON.parse(t);}catch(e){j=null;} if(!r.ok||!j) throw (j||{status:r.status}); return j; }); }); }
 
-    function toast(msg, ok) {
-        var d = $('<div>').addClass('alert alert-' + (ok === false ? 'danger' : 'success') + ' shadow').text(msg);
-        $('#toaster').append(d);
-        setTimeout(function () { d.remove(); }, 3500);
-    }
-    function removeRow(id) {
-        $('tr[data-item="' + id + '"]').remove();
-        var m = document.getElementById('purModal' + id);
-        if (m && window.bootstrap) { var inst = bootstrap.Modal.getInstance(m); if (inst) inst.hide(); }
-        var c = $('#reviewCount'); c.text(Math.max(0, parseInt(c.text()) - 1));
-    }
-
-    $(document).on('click', '.js-approve', function () {
-        var btn = $(this), id = btn.closest('tr').data('item');
-        btn.prop('disabled', true);
-        $.post(btn.data('url'), {})
-            .done(function (res) { toast(res.message); removeRow(id); })
-            .fail(function () { btn.prop('disabled', false); toast('تعذّر الاعتماد', false); });
+    ready(function(){
+        console.log('[AI-REVIEW] سكربت مراجعة المشتريات محمّل. أزرار:', document.querySelectorAll('.js-approve').length);
+        document.addEventListener('click', function(e){
+            var a=e.target.closest('.js-approve');
+            if(a){ e.preventDefault(); var id=a.closest('tr').getAttribute('data-item'); a.disabled=true;
+                post(a.getAttribute('data-url'),{}).then(function(res){toast(res.message);removeRow(id);}).catch(function(err){a.disabled=false;toast(err&&err.message?err.message:'تعذّر الاعتماد',false);}); return; }
+            var ma=e.target.closest('.js-modal-approve');
+            if(ma){ e.preventDefault(); var id2=ma.getAttribute('data-item'); var form=document.querySelector('.js-modal-form[data-item="'+id2+'"]'); var body={}; if(form){new FormData(form).forEach(function(v,k){body[k]=v;});} ma.disabled=true;
+                post(ma.getAttribute('data-url'),body).then(function(res){toast(res.message);removeRow(id2);}).catch(function(err){ma.disabled=false;toast(err&&err.message?err.message:'تعذّر الاعتماد',false);}); return; }
+            var rj=e.target.closest('.js-reject');
+            if(rj){ e.preventDefault(); if(!confirm('تأكيد رفض هذه الفاتورة؟'))return; var id3=rj.closest('.modal').id.replace('purModal','');
+                post(rj.getAttribute('data-url'),{reason:'رُفضت يدوياً'}).then(function(res){toast(res.message);removeRow(id3);}).catch(function(){toast('تعذّر الرفض',false);}); return; }
+            var all=e.target.closest('#approveAllBtn');
+            if(all){ e.preventDefault(); var ids=[].map.call(document.querySelectorAll('tr[data-item]'),function(tr){return tr.getAttribute('data-item');});
+                if(!ids.length){toast('لا توجد فواتير',false);return;} if(!confirm('اعتماد '+ids.length+' فاتورة دفعة واحدة؟'))return; all.disabled=true;
+                post(all.getAttribute('data-url'),{ids:ids}).then(function(res){ ids.forEach(function(id){ if(!(res.errors||[]).some(function(e){return e.id==id;})) removeRow(id); }); toast('تم اعتماد '+res.approved+' فاتورة'+(res.errors&&res.errors.length?' (تخطّي '+res.errors.length+')':'')); all.disabled=false; }).catch(function(){all.disabled=false;toast('تعذّر الاعتماد الجماعي',false);}); return; }
+        });
     });
-
-    $(document).on('click', '.js-modal-approve', function () {
-        var btn = $(this), id = btn.data('item');
-        var data = $('.js-modal-form[data-item="' + id + '"]').serializeArray();
-        btn.prop('disabled', true);
-        $.post(btn.data('url'), data)
-            .done(function (res) { toast(res.message); removeRow(id); })
-            .fail(function () { btn.prop('disabled', false); toast('تعذّر الاعتماد', false); });
-    });
-
-    $(document).on('click', '.js-reject', function () {
-        if (!confirm('تأكيد رفض هذه الفاتورة؟')) return;
-        var btn = $(this), id = btn.closest('.modal').attr('id').replace('purModal', '');
-        $.post(btn.data('url'), { reason: 'رُفضت يدوياً' })
-            .done(function (res) { toast(res.message); removeRow(id); })
-            .fail(function () { toast('تعذّر الرفض', false); });
-    });
-
-    $(document).on('click', '#approveAllBtn', function () {
-        var btn = $(this);
-        var ids = $('tr[data-item]').map(function () { return $(this).data('item'); }).get();
-        if (!ids.length) { toast('لا توجد فواتير', false); return; }
-        if (!confirm('اعتماد ' + ids.length + ' فاتورة دفعة واحدة؟')) return;
-        btn.prop('disabled', true);
-        $.post(btn.data('url'), { ids: ids })
-            .done(function (res) {
-                ids.forEach(function (id) { if (!(res.errors || []).some(function (e) { return e.id == id; })) removeRow(id); });
-                toast('تم اعتماد ' + res.approved + ' فاتورة' + (res.errors && res.errors.length ? ' (تخطّي ' + res.errors.length + ')' : ''));
-                btn.prop('disabled', false);
-            })
-            .fail(function () { btn.prop('disabled', false); toast('تعذّر الاعتماد الجماعي', false); });
-    });
-});
+})();
 </script>
 @endsection
