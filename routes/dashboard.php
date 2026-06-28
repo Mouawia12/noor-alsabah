@@ -324,6 +324,7 @@ Route::group([
         Route::get('/purchase/ai/failed', [PurchaseAiController::class, 'failed'])->name('purchase.ai.failed');
         Route::get('/purchase/ai/reports', [PurchaseAiController::class, 'reports'])->name('purchase.ai.reports');
         Route::get('/purchase/ai/reports/export', [PurchaseAiController::class, 'exportReports'])->name('purchase.ai.reports.export');
+        Route::post('/purchase/ai/approve-all', [PurchaseAiController::class, 'approveAll'])->name('purchase.ai.approve_all');
         Route::post('/purchase/ai/item/{item}/approve', [PurchaseAiController::class, 'approve'])->name('purchase.ai.approve');
         Route::post('/purchase/ai/item/{item}/reject', [PurchaseAiController::class, 'reject'])->name('purchase.ai.reject');
         Route::post('/purchase/ai/item/{item}/reprocess', [PurchaseAiController::class, 'reprocess'])->name('purchase.ai.reprocess');
@@ -339,6 +340,7 @@ Route::group([
         Route::get('/rent/ai/failed', [RentAiController::class, 'failed'])->name('rent.ai.failed');
         Route::get('/rent/ai/reports', [RentAiController::class, 'reports'])->name('rent.ai.reports');
         Route::get('/rent/ai/reports/export', [RentAiController::class, 'exportReports'])->name('rent.ai.reports.export');
+        Route::post('/rent/ai/approve-all', [RentAiController::class, 'approveAll'])->name('rent.ai.approve_all');
         Route::post('/rent/ai/item/{item}/approve', [RentAiController::class, 'approve'])->name('rent.ai.approve');
         Route::post('/rent/ai/item/{item}/reject', [RentAiController::class, 'reject'])->name('rent.ai.reject');
         Route::post('/rent/ai/item/{item}/reprocess', [RentAiController::class, 'reprocess'])->name('rent.ai.reprocess');

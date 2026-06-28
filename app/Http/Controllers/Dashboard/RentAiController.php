@@ -197,7 +197,41 @@ class RentAiController extends Controller
         $this->guardAiItem($item);
         $shopRentId = $this->importService->approveItem($item, array_filter($overrides, fn ($v) => $v !== null && $v !== ''), Auth::id());
 
-        return back()->with('alert.success', "تم اعتماد العقد رقم {$shopRentId} وتوليد دفعاته.");
+        $msg = "تم اعتماد العقد رقم {$shopRentId} وتوليد دفعاته.";
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(['ok' => true, 'message' => $msg, 'item_id' => $item->id]);
+        }
+        return back()->with('alert.success', $msg);
+    }
+
+    /** اعتماد جماعي للعقود (يستخدم البيانات المستخرجة + المحل المختار لكل صف). */
+    public function approveAll(Request $request)
+    {
+        $rows = (array) $request->input('items', []);
+        $approved = 0;
+        $errors = [];
+
+        foreach ($rows as $r) {
+            $id = $r['id'] ?? null;
+            $shopId = $r['shop_id'] ?? null;
+            $item = $id ? RentContractImportItem::find($id) : null;
+            if (! $item || $item->status !== RentContractImportItem::STATUS_NEEDS_REVIEW) {
+                continue;
+            }
+            if (empty($shopId)) {
+                $errors[] = ['id' => (int) $id, 'msg' => 'لم يُختر المحل'];
+                continue;
+            }
+            try {
+                $this->guardAiItem($item);
+                $this->importService->approveItem($item, ['shop_id' => $shopId], Auth::id());
+                $approved++;
+            } catch (\Throwable $e) {
+                $errors[] = ['id' => (int) $id, 'msg' => 'تعذّر الاعتماد'];
+            }
+        }
+
+        return response()->json(['ok' => true, 'approved' => $approved, 'errors' => $errors]);
     }
 
     public function reject(Request $request, RentContractImportItem $item)
@@ -205,6 +239,9 @@ class RentAiController extends Controller
         $this->guardAiItem($item);
         $this->importService->rejectItem($item, $request->input('reason'), Auth::id());
 
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(['ok' => true, 'message' => 'تم رفض العقد.', 'item_id' => $item->id]);
+        }
         return back()->with('alert.success', 'تم رفض العقد.');
     }
 }

@@ -217,11 +217,57 @@ class PurchaseAiController extends Controller
             'amount_before_tax', 'tax_amount', 'total', 'note',
             'supplier_id', 'new_supplier_name',
         ]);
+        $overrides = array_filter($overrides, fn ($v) => $v !== null && $v !== '');
+
+        // إن لم يُحدَّد مورد، استخدم المطابق أو أنشئ المقترح من الاسم المستخرج
+        if (empty($overrides['supplier_id']) && empty($overrides['new_supplier_name'])) {
+            $sup = $item->extracted_json['supplier'] ?? [];
+            $data = $item->extracted_json['data'] ?? [];
+            if (! empty($sup['matched'])) {
+                $overrides['supplier_id'] = $sup['supplier_id'];
+            } elseif (! empty($data['supplier_name'])) {
+                $overrides['new_supplier_name'] = $data['supplier_name'];
+            }
+        }
 
         $this->guardAiItem($item);
-        $purchaseId = $this->importService->approveItem($item, array_filter($overrides, fn ($v) => $v !== null && $v !== ''), Auth::id());
+        $purchaseId = $this->importService->approveItem($item, $overrides, Auth::id());
 
-        return back()->with('alert.success', "تم اعتماد الفاتورة وإنشاء سجل المشتريات رقم {$purchaseId}.");
+        $msg = "تم اعتماد الفاتورة وإنشاء سجل المشتريات رقم {$purchaseId}.";
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(['ok' => true, 'message' => $msg, 'item_id' => $item->id]);
+        }
+        return back()->with('alert.success', $msg);
+    }
+
+    /** اعتماد جماعي للفواتير (يستخدم البيانات المستخرجة + إنشاء المورد المقترح). */
+    public function approveAll(Request $request)
+    {
+        $ids = (array) $request->input('ids', []);
+        $approved = 0;
+        $errors = [];
+
+        foreach ($ids as $id) {
+            $item = PurchaseImportItem::find($id);
+            if (! $item || $item->status !== PurchaseImportItem::STATUS_NEEDS_REVIEW) {
+                continue;
+            }
+            try {
+                $this->guardAiItem($item);
+                // استخدم المورد المطابق أو أنشئ المقترح من الاسم المستخرج
+                $sup = $item->extracted_json['supplier'] ?? [];
+                $data = $item->extracted_json['data'] ?? [];
+                $overrides = ! empty($sup['matched'])
+                    ? ['supplier_id' => $sup['supplier_id']]
+                    : (! empty($data['supplier_name']) ? ['new_supplier_name' => $data['supplier_name']] : []);
+                $this->importService->approveItem($item, $overrides, Auth::id());
+                $approved++;
+            } catch (\Throwable $e) {
+                $errors[] = ['id' => (int) $id, 'msg' => 'تعذّر الاعتماد'];
+            }
+        }
+
+        return response()->json(['ok' => true, 'approved' => $approved, 'errors' => $errors]);
     }
 
     /** رفض عنصر. */
@@ -230,6 +276,9 @@ class PurchaseAiController extends Controller
         $this->guardAiItem($item);
         $this->importService->rejectItem($item, $request->input('reason'), Auth::id());
 
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(['ok' => true, 'message' => 'تم رفض الفاتورة.', 'item_id' => $item->id]);
+        }
         return back()->with('alert.success', 'تم رفض الفاتورة.');
     }
 }
