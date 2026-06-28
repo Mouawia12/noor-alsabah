@@ -104,40 +104,65 @@
         </div>
     @endforeach
 
-    <script>
-    (function () {
-        const CSRF = '{{ csrf_token() }}';
-        function toast(msg, ok = true) {
-            const d = document.createElement('div');
-            d.className = 'alert alert-' + (ok ? 'success' : 'danger') + ' shadow';
-            d.textContent = msg; document.getElementById('toaster').appendChild(d);
-            setTimeout(() => d.remove(), 3500);
-        }
-        function post(url, body) {
-            return fetch(url, { method: 'POST', headers: { 'X-CSRF-TOKEN': CSRF, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) })
-                .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)));
-        }
-        function removeRow(id) {
-            document.querySelector('tr[data-item="' + id + '"]')?.remove();
-            const m = document.getElementById('purModal' + id); if (m) { const i = bootstrap.Modal.getInstance(m); if (i) i.hide(); }
-            const c = document.getElementById('reviewCount'); if (c) c.textContent = Math.max(0, parseInt(c.textContent) - 1);
-        }
-        document.addEventListener('click', function (e) {
-            const a = e.target.closest('.js-approve');
-            if (a) { const id = a.closest('tr').dataset.item; a.disabled = true;
-                post(a.dataset.url, {}).then(res => { toast(res.message); removeRow(id); }).catch(() => { a.disabled = false; toast('تعذّر الاعتماد', false); }); }
-            const ma = e.target.closest('.js-modal-approve');
-            if (ma) { const id = ma.dataset.item; const form = document.querySelector('.js-modal-form[data-item="' + id + '"]'); const body = {}; new FormData(form).forEach((v, k) => body[k] = v); ma.disabled = true;
-                post(ma.dataset.url, body).then(res => { toast(res.message); removeRow(id); }).catch(() => { ma.disabled = false; toast('تعذّر الاعتماد', false); }); }
-            const rj = e.target.closest('.js-reject');
-            if (rj) { if (!confirm('تأكيد رفض هذه الفاتورة؟')) return; const id = rj.closest('.modal').id.replace('purModal', '');
-                post(rj.dataset.url, { reason: 'رُفضت يدوياً' }).then(res => { toast(res.message); removeRow(id); }).catch(() => toast('تعذّر الرفض', false)); }
-            const all = e.target.closest('#approveAllBtn');
-            if (all) { const ids = [...document.querySelectorAll('tr[data-item]')].map(tr => tr.dataset.item); if (!ids.length) return toast('لا توجد فواتير', false);
-                if (!confirm('اعتماد ' + ids.length + ' فاتورة دفعة واحدة؟')) return; all.disabled = true;
-                post(all.dataset.url, { ids }).then(res => { ids.forEach(id => { if (!res.errors.find(e => e.id == id)) removeRow(id); }); toast('تم اعتماد ' + res.approved + ' فاتورة' + (res.errors.length ? ' (تخطّي ' + res.errors.length + ')' : '')); all.disabled = false; }).catch(() => { all.disabled = false; toast('تعذّر الاعتماد الجماعي', false); }); }
-        });
-    })();
-    </script>
+@endsection
 
+@section('scripts')
+<script>
+jQuery(function ($) {
+    var CSRF = '{{ csrf_token() }}';
+    $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': CSRF, 'X-Requested-With': 'XMLHttpRequest' } });
+
+    function toast(msg, ok) {
+        var d = $('<div>').addClass('alert alert-' + (ok === false ? 'danger' : 'success') + ' shadow').text(msg);
+        $('#toaster').append(d);
+        setTimeout(function () { d.remove(); }, 3500);
+    }
+    function removeRow(id) {
+        $('tr[data-item="' + id + '"]').remove();
+        var m = document.getElementById('purModal' + id);
+        if (m && window.bootstrap) { var inst = bootstrap.Modal.getInstance(m); if (inst) inst.hide(); }
+        var c = $('#reviewCount'); c.text(Math.max(0, parseInt(c.text()) - 1));
+    }
+
+    $(document).on('click', '.js-approve', function () {
+        var btn = $(this), id = btn.closest('tr').data('item');
+        btn.prop('disabled', true);
+        $.post(btn.data('url'), {})
+            .done(function (res) { toast(res.message); removeRow(id); })
+            .fail(function () { btn.prop('disabled', false); toast('تعذّر الاعتماد', false); });
+    });
+
+    $(document).on('click', '.js-modal-approve', function () {
+        var btn = $(this), id = btn.data('item');
+        var data = $('.js-modal-form[data-item="' + id + '"]').serializeArray();
+        btn.prop('disabled', true);
+        $.post(btn.data('url'), data)
+            .done(function (res) { toast(res.message); removeRow(id); })
+            .fail(function () { btn.prop('disabled', false); toast('تعذّر الاعتماد', false); });
+    });
+
+    $(document).on('click', '.js-reject', function () {
+        if (!confirm('تأكيد رفض هذه الفاتورة؟')) return;
+        var btn = $(this), id = btn.closest('.modal').attr('id').replace('purModal', '');
+        $.post(btn.data('url'), { reason: 'رُفضت يدوياً' })
+            .done(function (res) { toast(res.message); removeRow(id); })
+            .fail(function () { toast('تعذّر الرفض', false); });
+    });
+
+    $(document).on('click', '#approveAllBtn', function () {
+        var btn = $(this);
+        var ids = $('tr[data-item]').map(function () { return $(this).data('item'); }).get();
+        if (!ids.length) { toast('لا توجد فواتير', false); return; }
+        if (!confirm('اعتماد ' + ids.length + ' فاتورة دفعة واحدة؟')) return;
+        btn.prop('disabled', true);
+        $.post(btn.data('url'), { ids: ids })
+            .done(function (res) {
+                ids.forEach(function (id) { if (!(res.errors || []).some(function (e) { return e.id == id; })) removeRow(id); });
+                toast('تم اعتماد ' + res.approved + ' فاتورة' + (res.errors && res.errors.length ? ' (تخطّي ' + res.errors.length + ')' : ''));
+                btn.prop('disabled', false);
+            })
+            .fail(function () { btn.prop('disabled', false); toast('تعذّر الاعتماد الجماعي', false); });
+    });
+});
+</script>
 @endsection

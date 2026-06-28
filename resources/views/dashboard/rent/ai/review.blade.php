@@ -105,83 +105,74 @@
         </div>
     @endforeach
 
-    <script>
-    (function () {
-        const CSRF = '{{ csrf_token() }}';
-        function toast(msg, ok = true) {
-            const d = document.createElement('div');
-            d.className = 'alert alert-' + (ok ? 'success' : 'danger') + ' shadow';
-            d.textContent = msg;
-            document.getElementById('toaster').appendChild(d);
-            setTimeout(() => d.remove(), 3500);
-        }
-        function post(url, body) {
-            return fetch(url, {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': CSRF, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                body: JSON.stringify(body || {})
-            }).then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)));
-        }
-        function removeRow(id) {
-            const tr = document.querySelector('tr[data-item="' + id + '"]');
-            if (tr) tr.remove();
-            const m = document.getElementById('rentModal' + id);
-            if (m) { const inst = bootstrap.Modal.getInstance(m); if (inst) inst.hide(); }
-            const c = document.getElementById('reviewCount');
-            if (c) c.textContent = Math.max(0, parseInt(c.textContent) - 1);
-        }
-        function rowShop(id) {
-            const tr = document.querySelector('tr[data-item="' + id + '"]');
-            return tr ? (tr.querySelector('.row-shop')?.value || '') : '';
-        }
+@endsection
 
-        document.addEventListener('click', function (e) {
-            // اعتماد سريع من الصف
-            const a = e.target.closest('.js-approve');
-            if (a) {
-                const tr = a.closest('tr'); const id = tr.dataset.item; const shop = rowShop(id);
-                if (!shop) return toast('اختر المحل/العقار أولاً', false);
-                a.disabled = true;
-                post(a.dataset.url, { shop_id: shop }).then(res => { toast(res.message); removeRow(id); })
-                    .catch(() => { a.disabled = false; toast('تعذّر الاعتماد', false); });
-            }
-            // اعتماد من النافذة (مع التعديلات)
-            const ma = e.target.closest('.js-modal-approve');
-            if (ma) {
-                const id = ma.dataset.item; const shop = rowShop(id);
-                if (!shop) return toast('اختر المحل/العقار من الجدول أولاً', false);
-                const form = document.querySelector('.js-modal-form[data-item="' + id + '"]');
-                const body = { shop_id: shop };
-                new FormData(form).forEach((v, k) => body[k] = v);
-                ma.disabled = true;
-                post(ma.dataset.url, body).then(res => { toast(res.message); removeRow(id); })
-                    .catch(() => { ma.disabled = false; toast('تعذّر الاعتماد', false); });
-            }
-            // رفض
-            const rj = e.target.closest('.js-reject');
-            if (rj) {
-                if (!confirm('تأكيد رفض هذا العقد؟')) return;
-                const id = rj.closest('.modal').id.replace('rentModal', '');
-                post(rj.dataset.url, { reason: 'رُفض يدوياً' }).then(res => { toast(res.message); removeRow(id); })
-                    .catch(() => toast('تعذّر الرفض', false));
-            }
-            // اعتماد الكل
-            const all = e.target.closest('#approveAllBtn');
-            if (all) {
-                const rows = [...document.querySelectorAll('tr[data-item]')].map(tr => ({ id: tr.dataset.item, shop_id: tr.querySelector('.row-shop')?.value || '' }));
-                if (!rows.length) return toast('لا توجد عقود', false);
-                const missing = rows.filter(r => !r.shop_id).length;
-                if (missing && !confirm('هناك ' + missing + ' عقد بلا محل مختار سيُتجاوز. متابعة اعتماد الباقي؟')) return;
-                all.disabled = true;
-                post(all.dataset.url, { items: rows }).then(res => {
-                    res.errors.forEach(er => {}); // متروكة في الجدول
-                    rows.forEach(r => { if (r.shop_id && !res.errors.find(e => e.id == r.id)) removeRow(r.id); });
-                    toast('تم اعتماد ' + res.approved + ' عقد' + (res.errors.length ? ' (تخطّي ' + res.errors.length + ')' : ''));
-                    all.disabled = false;
-                }).catch(() => { all.disabled = false; toast('تعذّر الاعتماد الجماعي', false); });
-            }
-        });
-    })();
-    </script>
+@section('scripts')
+<script>
+jQuery(function ($) {
+    var CSRF = '{{ csrf_token() }}';
+    $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': CSRF, 'X-Requested-With': 'XMLHttpRequest' } });
 
+    function toast(msg, ok) {
+        var d = $('<div>').addClass('alert alert-' + (ok === false ? 'danger' : 'success') + ' shadow').text(msg);
+        $('#toaster').append(d);
+        setTimeout(function () { d.remove(); }, 3500);
+    }
+    function removeRow(id) {
+        $('tr[data-item="' + id + '"]').remove();
+        var m = document.getElementById('rentModal' + id);
+        if (m && window.bootstrap) { var inst = bootstrap.Modal.getInstance(m); if (inst) inst.hide(); }
+        var c = $('#reviewCount'); c.text(Math.max(0, parseInt(c.text()) - 1));
+    }
+    function rowShop(id) { return $('tr[data-item="' + id + '"] .row-shop').val() || ''; }
+
+    // اعتماد سريع من الصف
+    $(document).on('click', '.js-approve', function () {
+        var btn = $(this), id = btn.closest('tr').data('item'), shop = rowShop(id);
+        if (!shop) { toast('اختر المحل/العقار أولاً', false); return; }
+        btn.prop('disabled', true);
+        $.post(btn.data('url'), { shop_id: shop })
+            .done(function (res) { toast(res.message); removeRow(id); })
+            .fail(function () { btn.prop('disabled', false); toast('تعذّر الاعتماد', false); });
+    });
+
+    // اعتماد من النافذة مع التعديلات
+    $(document).on('click', '.js-modal-approve', function () {
+        var btn = $(this), id = btn.data('item'), shop = rowShop(id);
+        if (!shop) { toast('اختر المحل/العقار من الجدول أولاً', false); return; }
+        var data = $('.js-modal-form[data-item="' + id + '"]').serializeArray();
+        data.push({ name: 'shop_id', value: shop });
+        btn.prop('disabled', true);
+        $.post(btn.data('url'), data)
+            .done(function (res) { toast(res.message); removeRow(id); })
+            .fail(function () { btn.prop('disabled', false); toast('تعذّر الاعتماد', false); });
+    });
+
+    // رفض
+    $(document).on('click', '.js-reject', function () {
+        if (!confirm('تأكيد رفض هذا العقد؟')) return;
+        var btn = $(this), id = btn.closest('.modal').attr('id').replace('rentModal', '');
+        $.post(btn.data('url'), { reason: 'رُفض يدوياً' })
+            .done(function (res) { toast(res.message); removeRow(id); })
+            .fail(function () { toast('تعذّر الرفض', false); });
+    });
+
+    // اعتماد الكل
+    $(document).on('click', '#approveAllBtn', function () {
+        var btn = $(this);
+        var rows = $('tr[data-item]').map(function () { return { id: $(this).data('item'), shop_id: $(this).find('.row-shop').val() || '' }; }).get();
+        if (!rows.length) { toast('لا توجد عقود', false); return; }
+        var missing = rows.filter(function (r) { return !r.shop_id; }).length;
+        if (missing && !confirm('هناك ' + missing + ' عقد بلا محل مختار سيُتجاوز. متابعة؟')) return;
+        btn.prop('disabled', true);
+        $.post(btn.data('url'), { items: rows })
+            .done(function (res) {
+                rows.forEach(function (r) { if (r.shop_id && !(res.errors || []).some(function (e) { return e.id == r.id; })) removeRow(r.id); });
+                toast('تم اعتماد ' + res.approved + ' عقد' + (res.errors && res.errors.length ? ' (تخطّي ' + res.errors.length + ')' : ''));
+                btn.prop('disabled', false);
+            })
+            .fail(function () { btn.prop('disabled', false); toast('تعذّر الاعتماد الجماعي', false); });
+    });
+});
+</script>
 @endsection
