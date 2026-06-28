@@ -87,8 +87,8 @@
                             <div class="col-lg-5">
                                 <div class="border rounded p-2 bg-light" style="max-height:60vh; overflow:auto;">
                                     @for ($p = 0; $p < max(1, $pages); $p++)
-                                        <img data-src="{{ route('dashboard.rent.ai.image', ['item' => $item->id, 'page' => $p]) }}"
-                                             class="img-fluid mb-2 rounded shadow-sm lazy-doc" alt="صفحة {{ $p + 1 }}" onerror="this.style.display='none'">
+                                        <img src="{{ route('dashboard.rent.ai.image', ['item' => $item->id, 'page' => $p]) }}"
+                                             loading="lazy" class="img-fluid mb-2 rounded shadow-sm w-100" alt="صفحة {{ $p + 1 }}" onerror="this.style.display='none'">
                                     @endfor
                                 </div>
                             </div>
@@ -143,15 +143,4 @@
         </div>
     @endforeach
 
-@endsection
-
-@section('scripts')
-<script>
-// تحميل صور المستند فقط عند فتح النافذة (أداء أفضل مع الأعداد الكبيرة)
-document.addEventListener('show.bs.modal', function (e) {
-    e.target.querySelectorAll('img.lazy-doc[data-src]').forEach(function (img) {
-        if (!img.src) { img.src = img.getAttribute('data-src'); }
-    });
-});
-</script>
 @endsection
