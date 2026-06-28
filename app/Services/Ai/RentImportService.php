@@ -53,6 +53,12 @@ class RentImportService
      */
     public function approveItem(RentContractImportItem $item, array $overrides = [], ?int $userId = null): int
     {
+        // حارس ضد الاعتماد المزدوج → لا يُنشأ عقدان ولا جدولا دفعات
+        $item->refresh();
+        if ($item->status === RentContractImportItem::STATUS_APPROVED || $item->shop_rent_id) {
+            return (int) $item->shop_rent_id;
+        }
+
         $origExtracted = (array) ($item->extracted_json['data'] ?? $item->extracted_json ?? []);
         $data = array_merge($origExtracted, $overrides);
         $shopId = $overrides['shop_id'] ?? $item->shop_id;
@@ -136,10 +142,6 @@ class RentImportService
 
     protected function date($v): ?string
     {
-        if (empty($v)) {
-            return null;
-        }
-        $ts = strtotime((string) $v);
-        return $ts ? date('Y-m-d', $ts) : null;
+        return DateNormalizer::toYmd($v);
     }
 }

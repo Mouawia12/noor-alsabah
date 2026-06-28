@@ -52,6 +52,6 @@ class InvoiceValidationService
 
     protected function looksLikeDate($v): bool
     {
-        return (bool) strtotime((string) $v);
+        return DateNormalizer::looksLikeDate($v);
     }
 }

@@ -18,3 +18,12 @@ error_log
 *.bak
 /database/dumps
 /database/backups
+
+# نسخ/أرشيفات لا تُرفع (نفايات تربك المستودع)
+*.zip
+*.php_
+* copy*.php
+*[Cc]opy*.php
+* - Copy*
+**/*@@*
+**/*$$*

@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('batch_id')->constrained('rent_contract_import_batch')->cascadeOnDelete();
             $table->unsignedInteger('page_from')->nullable();
             $table->unsignedInteger('page_to')->nullable();
-            $table->string('source_file_path')->nullable();
+            $table->text('source_file_path')->nullable(); // مسارات صفحات العقد (قد تتجاوز 255 محرفاً)
             $table->string('page_hash')->nullable()->index();
             $table->json('extracted_json')->nullable();
             $table->decimal('confidence', 5, 4)->nullable();

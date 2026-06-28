@@ -38,7 +38,9 @@ return [
             'driver' => 'database',
             'table' => 'jobs',
             'queue' => 'default',
-            'retry_after' => 90,
+            // يجب أن يتجاوز أطول timeout للمهام (ProcessPurchaseBatchJob = 1800s)
+            // وإلا التُقطت المهمة وأُعيد تنفيذها أثناء عملها → إنفاق مزدوج وصفوف مكررة
+            'retry_after' => 2000,
             'after_commit' => false,
         ],
 

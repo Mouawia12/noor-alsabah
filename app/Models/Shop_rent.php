@@ -10,6 +10,7 @@ class Shop_rent extends Model
     use HasFactory;
     protected $table = "shop_rent";
     protected $primaryKey = 'shop_rent_id';
-    protected $guarded = [];
+    // أمن: حماية المفتاح الأساسي من الإسناد الجماعي (كان $guarded = [] يفتح كل الأعمدة)
+    protected $guarded = ['shop_rent_id'];
 
 }

@@ -1,14 +1,12 @@
 <?php
 
-use App\Providers\RouteServiceProvider;
+// التسجيل الذاتي معطّل عمداً: المستخدمون يُنشأون من لوحة التحكم بصلاحيات محددة.
 
-test('registration screen can be rendered', function () {
-    $response = $this->get('/register');
-
-    $response->assertStatus(200);
+test('registration screen is disabled', function () {
+    $this->get('/register')->assertNotFound();
 });
 
-test('new users can register', function () {
+test('self-registration is rejected and creates no user', function () {
     $response = $this->post('/register', [
         'name' => 'Test User',
         'email' => 'test@example.com',
@@ -16,6 +14,7 @@ test('new users can register', function () {
         'password_confirmation' => 'password',
     ]);
 
-    $this->assertAuthenticated();
-    $response->assertRedirect(RouteServiceProvider::HOME);
+    $response->assertNotFound();
+    $this->assertGuest();
+    $this->assertDatabaseMissing('users', ['email' => 'test@example.com']);
 });

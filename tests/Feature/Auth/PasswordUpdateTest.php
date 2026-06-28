@@ -34,7 +34,8 @@ test('correct password must be provided to update password', function () {
             'password_confirmation' => 'new-password',
         ]);
 
+    // PasswordController يستخدم حزمة أخطاء مسماة updatePassword
     $response
-        ->assertSessionHasErrors('current_password')
+        ->assertSessionHasErrorsIn('updatePassword', 'current_password')
         ->assertRedirect('/profile');
 });

@@ -34,7 +34,8 @@ class DuplicateDetectionService
             $row = DB::table('purchase')
                 ->where('tax_number', $tax)
                 ->whereDate('purchase_dt', $date)
-                ->where('purchase_price', $total)
+                // سماحية صغيرة بدل المساواة التامة (تمثيل الأرقام العشرية غير دقيق)
+                ->whereBetween('purchase_price', [$total - 0.01, $total + 0.01])
                 ->first(['purchase_id']);
             if ($row) {
                 return ['is_duplicate' => true, 'purchase_id' => (int) $row->purchase_id, 'reason' => 'توليفة (رقم ضريبي+تاريخ+إجمالي) مطابقة'];
@@ -46,10 +47,6 @@ class DuplicateDetectionService
 
     protected function normDate($v): ?string
     {
-        if (empty($v)) {
-            return null;
-        }
-        $ts = strtotime((string) $v);
-        return $ts ? date('Y-m-d', $ts) : null;
+        return DateNormalizer::toYmd($v);
     }
 }

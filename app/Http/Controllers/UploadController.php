@@ -43,9 +43,12 @@ class UploadController extends Controller
 
     public function delete_file(Request $request)
     {
-        $file = $request->images;
-        if (File::exists($file)) {
-            File::delete($file);
+        // محصور بمجلد الرفع فقط: نأخذ اسم الملف المجرّد لا مساراً كاملاً (منع حذف ملفات عشوائية)
+        $name = basename((string) $request->images);
+        $target = public_path('uploads/mol/' . $name);
+
+        if ($name !== '' && is_file($target)) {
+            @unlink($target);
         }
 
         /*      $rr[] =$request->images;

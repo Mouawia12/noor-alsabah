@@ -13,9 +13,9 @@ Trait FileTrait
     public function uploadFile($file, $path)
     {
        if ( $file ) {
-           $name= $file->getClientOriginalName();
-           $file_name       = Str::random(5).'.'.$name;
-          // $file->move(public_path($path),$file_name);
+           // الامتداد يُشتق من نوع الملف على الخادم لا من اسم المستخدم (منع حقن أسماء/امتدادات)
+           $ext = $file->extension() ?: $file->getClientOriginalExtension();
+           $file_name = Str::random(40) . ($ext ? '.' . $ext : '');
            $file->move(public_path('uploads/mol/'), $file_name);
 
            return $file_name;

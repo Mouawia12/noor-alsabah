@@ -56,6 +56,12 @@ class PurchaseImportService
      */
     public function approveItem(PurchaseImportItem $item, array $overrides = [], ?int $userId = null): int
     {
+        // حارس ضد الاعتماد المزدوج (نقر مزدوج/إعادة إرسال) → لا تُنشأ مشترياتان
+        $item->refresh();
+        if ($item->status === PurchaseImportItem::STATUS_APPROVED || $item->purchase_id) {
+            return (int) $item->purchase_id;
+        }
+
         $origExtracted = (array) ($item->extracted_json['data'] ?? $item->extracted_json ?? []);
         $data = array_merge($origExtracted, $overrides);
 
@@ -120,10 +126,6 @@ class PurchaseImportService
 
     protected function date($v): ?string
     {
-        if (empty($v)) {
-            return null;
-        }
-        $ts = strtotime((string) $v);
-        return $ts ? date('Y-m-d', $ts) : null;
+        return DateNormalizer::toYmd($v);
     }
 }

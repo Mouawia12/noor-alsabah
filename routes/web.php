@@ -27,7 +27,7 @@ Route::get('/', function () {
     return view('home');
 })->middleware(['auth', 'verified'])->name('home');
 
-Route::post('/images_upload', [UploadController::class, 'images'])->name('upload.images');
+Route::post('/images_upload', [UploadController::class, 'images'])->middleware('auth')->name('upload.images');
 
 Route::get('/', [HomeController::class, 'index'])->middleware(['auth', 'verified'])->name('home');
 
@@ -47,16 +47,19 @@ Route::middleware('auth')->group(function () {
 });
 
 
-Route::get('/clear', function() {
+Route::get('/clear', function () {
 
-   Artisan::call('cache:clear');
-   Artisan::call('config:clear');
-   Artisan::call('config:cache');
-   Artisan::call('view:clear');
+    // محصور بالمدير الأعلى فقط — تنفيذ أوامر artisan عبر الويب خطر
+    abort_unless(optional(\Illuminate\Support\Facades\Auth::user())->emp_job == 1, 403);
 
-   return "Cleared!";
+    Artisan::call('cache:clear');
+    Artisan::call('config:clear');
+    Artisan::call('config:cache');
+    Artisan::call('view:clear');
 
-});
+    return 'Cleared!';
+
+})->middleware('auth');
 
 
 Route::get('profile', function () {

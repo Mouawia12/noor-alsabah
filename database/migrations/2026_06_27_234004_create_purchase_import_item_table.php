@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('batch_id')->constrained('purchase_import_batch')->cascadeOnDelete();
             $table->unsignedInteger('page_from')->nullable();
             $table->unsignedInteger('page_to')->nullable();
-            $table->string('source_file_path')->nullable(); // الفاتورة المقتطعة/صورتها
+            $table->text('source_file_path')->nullable(); // مسارات صفحات الفاتورة (قد تتجاوز 255 محرفاً)
             $table->string('page_hash')->nullable()->index(); // منع تكرار الصفحة
             $table->json('extracted_json')->nullable();        // الاستخراج الخام (مرونة مستقبلية)
             $table->decimal('confidence', 5, 4)->nullable();   // ثقة عامة

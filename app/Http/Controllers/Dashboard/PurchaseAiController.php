@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Storage;
 class PurchaseAiController extends Controller
 {
     use \App\Http\Controllers\Dashboard\Concerns\ExportsReports;
+    use \App\Http\Controllers\Dashboard\Concerns\AuthorizesAiAccess;
 
     public function __construct(protected PurchaseImportService $importService) {}
 
@@ -64,6 +65,7 @@ class PurchaseAiController extends Controller
     /** صفحة متابعة دفعة. */
     public function batch(PurchaseImportBatch $batch)
     {
+        $this->guardAiBatch($batch);
         $page_title = 'متابعة معالجة الفواتير';
         $batch->load('items');
 
@@ -73,6 +75,8 @@ class PurchaseAiController extends Controller
     /** تقدّم الدفعة (JSON للـ polling). */
     public function batchJson(PurchaseImportBatch $batch)
     {
+        $this->guardAiBatch($batch);
+
         return response()->json([
             'status'          => $batch->status,
             'total_items'     => $batch->total_items,
@@ -103,6 +107,7 @@ class PurchaseAiController extends Controller
     /** عرض صورة صفحة المستند الأصلي (من القرص الخاص) — للمراجعة. */
     public function image(PurchaseImportItem $item, int $page = 0)
     {
+        $this->guardAiItem($item);
         $paths = array_values(array_filter(explode(',', (string) $item->source_file_path)));
         abort_if(empty($paths) || ! isset($paths[$page]) || ! is_file($paths[$page]), 404);
 
@@ -124,6 +129,7 @@ class PurchaseAiController extends Controller
     /** إعادة معالجة عنصر فاشل. */
     public function reprocess(PurchaseImportItem $item)
     {
+        $this->guardAiItem($item);
         $item->update(['status' => PurchaseImportItem::STATUS_PENDING, 'error_reason' => null]);
         \App\Jobs\ProcessPurchaseItemJob::dispatch($item->id);
 
@@ -133,6 +139,7 @@ class PurchaseAiController extends Controller
     /** إعادة معالجة دفعة فاشلة بالكامل. */
     public function reprocessBatch(PurchaseImportBatch $batch)
     {
+        $this->guardAiBatch($batch);
         $batch->items()->delete();
         $batch->update(['status' => PurchaseImportBatch::STATUS_PENDING, 'error_reason' => null, 'total_items' => 0, 'processed_items' => 0, 'failed_items' => 0]);
         \App\Jobs\ProcessPurchaseBatchJob::dispatch($batch->id);
@@ -211,6 +218,7 @@ class PurchaseAiController extends Controller
             'supplier_id', 'new_supplier_name',
         ]);
 
+        $this->guardAiItem($item);
         $purchaseId = $this->importService->approveItem($item, array_filter($overrides, fn ($v) => $v !== null && $v !== ''), Auth::id());
 
         return back()->with('alert.success', "تم اعتماد الفاتورة وإنشاء سجل المشتريات رقم {$purchaseId}.");
@@ -219,6 +227,7 @@ class PurchaseAiController extends Controller
     /** رفض عنصر. */
     public function reject(Request $request, PurchaseImportItem $item)
     {
+        $this->guardAiItem($item);
         $this->importService->rejectItem($item, $request->input('reason'), Auth::id());
 
         return back()->with('alert.success', 'تم رفض الفاتورة.');

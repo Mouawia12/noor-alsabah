@@ -1754,7 +1754,8 @@ dd($worker_health);*/
         $dataSet[] = $request->validate([
             'worker_name' => 'required',
         ]);
-        $vv = Workers::create($request->all());
+        // أمن: لا تُسند كل حقول الطلب — اقتصر على المسموح صراحةً
+        $vv = Workers::create($request->only(['worker_name']));
 
         /*
             $dataSet[] = [

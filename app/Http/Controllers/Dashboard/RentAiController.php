@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Storage;
 class RentAiController extends Controller
 {
     use \App\Http\Controllers\Dashboard\Concerns\ExportsReports;
+    use \App\Http\Controllers\Dashboard\Concerns\AuthorizesAiAccess;
 
     public function __construct(protected RentImportService $importService) {}
 
@@ -59,6 +60,7 @@ class RentAiController extends Controller
 
     public function batch(RentContractImportBatch $batch)
     {
+        $this->guardAiBatch($batch);
         $page_title = 'متابعة معالجة العقود';
         $batch->load('items');
 
@@ -67,6 +69,8 @@ class RentAiController extends Controller
 
     public function batchJson(RentContractImportBatch $batch)
     {
+        $this->guardAiBatch($batch);
+
         return response()->json([
             'status'          => $batch->status,
             'total_items'     => $batch->total_items,
@@ -97,6 +101,7 @@ class RentAiController extends Controller
     /** عرض صورة صفحة العقد الأصلي (من القرص الخاص). */
     public function image(RentContractImportItem $item, int $page = 0)
     {
+        $this->guardAiItem($item);
         $paths = array_values(array_filter(explode(',', (string) $item->source_file_path)));
         abort_if(empty($paths) || ! isset($paths[$page]) || ! is_file($paths[$page]), 404);
 
@@ -116,6 +121,7 @@ class RentAiController extends Controller
 
     public function reprocess(RentContractImportItem $item)
     {
+        $this->guardAiItem($item);
         $item->update(['status' => RentContractImportItem::STATUS_PENDING, 'error_reason' => null]);
         \App\Jobs\ProcessRentContractItemJob::dispatch($item->id);
 
@@ -124,6 +130,7 @@ class RentAiController extends Controller
 
     public function reprocessBatch(RentContractImportBatch $batch)
     {
+        $this->guardAiBatch($batch);
         $batch->items()->delete();
         $batch->update(['status' => RentContractImportBatch::STATUS_PENDING, 'error_reason' => null, 'total_items' => 0, 'processed_items' => 0, 'failed_items' => 0]);
         \App\Jobs\ProcessRentContractBatchJob::dispatch($batch->id);
@@ -187,6 +194,7 @@ class RentAiController extends Controller
             'renewal_terms', 'termination_terms', 'note', 'shop_id',
         ]);
 
+        $this->guardAiItem($item);
         $shopRentId = $this->importService->approveItem($item, array_filter($overrides, fn ($v) => $v !== null && $v !== ''), Auth::id());
 
         return back()->with('alert.success', "تم اعتماد العقد رقم {$shopRentId} وتوليد دفعاته.");
@@ -194,6 +202,7 @@ class RentAiController extends Controller
 
     public function reject(Request $request, RentContractImportItem $item)
     {
+        $this->guardAiItem($item);
         $this->importService->rejectItem($item, $request->input('reason'), Auth::id());
 
         return back()->with('alert.success', 'تم رفض العقد.');

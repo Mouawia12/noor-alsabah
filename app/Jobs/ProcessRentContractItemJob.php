@@ -102,6 +102,12 @@ class ProcessRentContractItemJob implements ShouldQueue
         $batch->refresh();
         if (($batch->processed_items + $batch->failed_items) >= $batch->total_items && $batch->total_items > 0) {
             $batch->update(['status' => RentContractImportBatch::STATUS_COMPLETED]);
+            try {
+                \Illuminate\Support\Facades\Storage::disk(config('ai.disk'))
+                    ->deleteDirectory('rent/work/' . $batch->id);
+            } catch (\Throwable $e) {
+                // التنظيف ليس حرجاً
+            }
             $user = $batch->create_user ? \App\Models\User::find($batch->create_user) : null;
             if ($user && $user->email) {
                 $user->notify(new \App\Notifications\BatchCompletedNotification(

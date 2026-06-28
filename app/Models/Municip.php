@@ -15,7 +15,8 @@ class Municip extends Model
 
     protected $primaryKey = 'municip_id';
     protected $table = "shop_municip";
-    protected $guarded = [];
+    // أمن: حماية المفتاح الأساسي من الإسناد الجماعي (كان $guarded = [] يفتح كل الأعمدة)
+    protected $guarded = ['municip_id'];
 
    // public $incrementing = false;
 //protected $dateFormat = 'U';
