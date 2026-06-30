@@ -102,35 +102,44 @@ class ProcessPurchaseItemJob implements ShouldQueue
                 'reasons'    => $reasons,
             ], $item->batch->create_user ?? null);
 
-            $this->bumpBatch($item->batch_id, processed: $accepted);
+            $this->bumpBatch($item->batch_id);
         } catch (\Throwable $e) {
+            // رسالة ودّية للمستخدم بدل الخطأ التقني الخام
             $item->update([
                 'status'       => PurchaseImportItem::STATUS_FAILED,
-                'error_reason' => $e->getMessage(),
+                'error_reason' => 'تعذّرت قراءة الفاتورة (قد تكون الصورة غير واضحة أو الملف تالفاً)',
             ]);
             AiAuditLog::record('purchase_item', $item->id, 'failed', ['error' => $e->getMessage()], $item->batch->create_user ?? null);
-            $this->bumpBatch($item->batch_id, processed: false);
+            $this->bumpBatch($item->batch_id);
             throw $e;
         }
     }
 
-    /** تحديث عدّادات الدفعة وإغلاقها عند اكتمال كل العناصر. */
-    protected function bumpBatch(int $batchId, bool $processed): void
+    /**
+     * يعيد حساب عدّادات الدفعة من قاعدة البيانات (مقاوم لإعادة المحاولة)،
+     * ويُغلق الدفعة عند انتهاء كل العناصر (لا pending/processing).
+     */
+    protected function bumpBatch(int $batchId): void
     {
         $batch = PurchaseImportBatch::find($batchId);
         if (! $batch) {
             return;
         }
 
-        $processed ? $batch->increment('processed_items') : $batch->increment('failed_items');
+        $c = PurchaseImportItem::where('batch_id', $batchId)
+            ->selectRaw('status, count(*) c')->groupBy('status')->pluck('c', 'status');
+        $failed  = (int) ($c['failed'] ?? 0);
+        $pending = (int) ($c['pending'] ?? 0) + (int) ($c['processing'] ?? 0);
+        $processed = max(0, (int) $batch->total_items - $failed - $pending);
 
-        $batch->refresh();
-        if (($batch->processed_items + $batch->failed_items) >= $batch->total_items && $batch->total_items > 0) {
-            // الفواتير: صفحة = فاتورة (لا دمج). المقبولة في المراجعة، والمرفوضة في شاشة مستقلة بأسبابها.
+        $wasCompleted = $batch->status === PurchaseImportBatch::STATUS_COMPLETED;
+        $batch->update(['processed_items' => $processed, 'failed_items' => $failed]);
+
+        if ($pending === 0 && $batch->total_items > 0 && ! $wasCompleted) {
             $batch->update(['status' => PurchaseImportBatch::STATUS_COMPLETED]);
             AiAuditLog::record('purchase_batch', $batch->id, 'completed', [
-                'accepted' => $batch->processed_items,
-                'rejected' => $batch->failed_items,
+                'accepted' => $processed,
+                'rejected' => $failed,
             ], $batch->create_user);
             $this->notifyUploader($batch);
         }

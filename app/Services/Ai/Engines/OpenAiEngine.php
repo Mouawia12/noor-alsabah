@@ -159,11 +159,23 @@ class OpenAiEngine implements ExtractionEngine
         }
     }
 
-    /** استخراج وفك JSON من رد الـ chat completion. */
+    /** استخراج وفك JSON من رد الـ chat completion (مع معالجة الرفض والاقتطاع). */
     protected function parseContent(array $json): array
     {
-        $content = $json['choices'][0]['message']['content'] ?? null;
-        if ($content === null) {
+        $message = $json['choices'][0]['message'] ?? [];
+        $finish  = $json['choices'][0]['finish_reason'] ?? null;
+
+        // رفض النموذج (محتوى غير قابل للاستخراج/سياسات)
+        if (! empty($message['refusal'])) {
+            throw new RuntimeException('رفض النموذج المعالجة: ' . $message['refusal']);
+        }
+        // اقتطاع بسبب حد المخرجات
+        if ($finish === 'length') {
+            throw new RuntimeException('اقتُطعت نتيجة الاستخراج (تجاوز حد الطول)');
+        }
+
+        $content = $message['content'] ?? null;
+        if ($content === null || $content === '') {
             throw new RuntimeException('رد OpenAI فارغ أو غير متوقع');
         }
         $data = json_decode($content, true);

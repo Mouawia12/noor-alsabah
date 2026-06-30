@@ -69,11 +69,11 @@ class ProcessRentContractItemJob implements ShouldQueue
                 'duplicate'  => $dup['is_duplicate'],
             ], $item->batch->create_user ?? null);
 
-            $this->bumpBatch($item->batch_id, true);
+            $this->bumpBatch($item->batch_id);
         } catch (\Throwable $e) {
-            $item->update(['status' => RentContractImportItem::STATUS_FAILED, 'error_reason' => $e->getMessage()]);
+            $item->update(['status' => RentContractImportItem::STATUS_FAILED, 'error_reason' => 'تعذّرت قراءة العقد (قد تكون الصورة غير واضحة أو الملف تالفاً)']);
             AiAuditLog::record('rent_item', $item->id, 'failed', ['error' => $e->getMessage()], $item->batch->create_user ?? null);
-            $this->bumpBatch($item->batch_id, false);
+            $this->bumpBatch($item->batch_id);
             throw $e;
         }
     }
@@ -93,15 +93,23 @@ class ProcessRentContractItemJob implements ShouldQueue
         return ['is_duplicate' => false, 'shop_rent_id' => null];
     }
 
-    protected function bumpBatch(int $batchId, bool $processed): void
+    protected function bumpBatch(int $batchId): void
     {
         $batch = RentContractImportBatch::find($batchId);
         if (! $batch) {
             return;
         }
-        $processed ? $batch->increment('processed_items') : $batch->increment('failed_items');
-        $batch->refresh();
-        if (($batch->processed_items + $batch->failed_items) >= $batch->total_items && $batch->total_items > 0) {
+
+        $c = RentContractImportItem::where('batch_id', $batchId)
+            ->selectRaw('status, count(*) c')->groupBy('status')->pluck('c', 'status');
+        $failed  = (int) ($c['failed'] ?? 0);
+        $pending = (int) ($c['pending'] ?? 0) + (int) ($c['processing'] ?? 0);
+        $processed = max(0, (int) $batch->total_items - $failed - $pending);
+
+        $wasCompleted = $batch->status === RentContractImportBatch::STATUS_COMPLETED;
+        $batch->update(['processed_items' => $processed, 'failed_items' => $failed]);
+
+        if ($pending === 0 && $batch->total_items > 0 && ! $wasCompleted) {
             // دمج صفحات التكملة مع عقودها (صفحة التوقيع لا تظهر كعقد فارغ)
             $items = RentContractImportItem::where('batch_id', $batch->id)
                 ->where('status', RentContractImportItem::STATUS_NEEDS_REVIEW)
