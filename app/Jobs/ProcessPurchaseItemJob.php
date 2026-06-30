@@ -15,6 +15,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 /**
  * معالجة عنصر (فاتورة) واحد: استخراج → تحقق → كشف تكرار → مطابقة مورد.
@@ -139,11 +140,16 @@ class ProcessPurchaseItemJob implements ShouldQueue
     {
         $user = $batch->create_user ? \App\Models\User::find($batch->create_user) : null;
         if ($user && $user->email) {
-            $user->notify(new \App\Notifications\BatchCompletedNotification(
-                'purchase', $batch->original_filename, $batch->total_items,
-                $batch->processed_items, $batch->failed_items,
-                route('dashboard.purchase.ai.review', ['batch_id' => $batch->id])
-            ));
+            // إشعار الإكمال غير حرج: فشله (مثلاً SMTP محظور) يجب ألا يُفشل معالجة العنصر
+            try {
+                $user->notify(new \App\Notifications\BatchCompletedNotification(
+                    'purchase', $batch->original_filename, $batch->total_items,
+                    $batch->processed_items, $batch->failed_items,
+                    route('dashboard.purchase.ai.review', ['batch_id' => $batch->id])
+                ));
+            } catch (\Throwable $e) {
+                Log::warning('BatchCompletedNotification (purchase) failed: ' . $e->getMessage());
+            }
         }
     }
 }

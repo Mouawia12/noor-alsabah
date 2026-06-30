@@ -33,4 +33,15 @@ class PurchaseImportItem extends Model
     {
         return $this->belongsTo(PurchaseImportBatch::class, 'batch_id');
     }
+
+    /**
+     * عناصر بانتظار المراجعة بترتيب حتمي (الأحدث أولاً مع كاسر تعادل على id)
+     * لضمان ترقيم offset مستقر بين الطلبات.
+     */
+    public function scopeNeedsReviewOrdered($query)
+    {
+        return $query->where('status', self::STATUS_NEEDS_REVIEW)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
+    }
 }

@@ -33,8 +33,8 @@ class PdfService
             // تجاهل وجرّب البدائل
         }
 
-        // 2) pdfinfo (poppler)
-        if ($bin = self::bin('pdfinfo')) {
+        // 2) pdfinfo (poppler) — فقط حيث shell_exec مفعّلة (CLI/العامل)
+        if (function_exists('shell_exec') && ($bin = self::bin('pdfinfo'))) {
             $out = shell_exec(escapeshellarg($bin) . ' ' . escapeshellarg($pdfPath) . ' 2>/dev/null');
             if ($out && preg_match('/Pages:\s+(\d+)/', $out, $m)) {
                 return (int) $m[1];
@@ -175,13 +175,21 @@ class PdfService
     /** إيجاد مسار أداة سطر أوامر (مع مسارات شائعة احتياطية). */
     protected static function bin(string $name): ?string
     {
-        $path = trim((string) @shell_exec('command -v ' . escapeshellarg($name) . ' 2>/dev/null'));
-        if ($path !== '' && is_executable($path)) {
-            return $path;
+        // shell_exec معطّلة في FPM على هذا السيرفر (تحصين Hestia) → نطوّقها بـ function_exists
+        // ونعتمد مسحاً Pure-PHP لـ PATH كي يعمل canRasterize() في سياق الويب أيضاً.
+        if (function_exists('shell_exec')) {
+            $path = trim((string) @shell_exec('command -v ' . escapeshellarg($name) . ' 2>/dev/null'));
+            if ($path !== '' && @is_executable($path)) {
+                return $path;
+            }
         }
-        foreach (['/usr/bin/', '/usr/local/bin/', '/opt/homebrew/bin/'] as $dir) {
-            if (is_executable($dir . $name)) {
-                return $dir . $name;
+        $dirs = array_filter(explode(PATH_SEPARATOR, (string) getenv('PATH')));
+        foreach (array_merge($dirs, ['/usr/bin', '/usr/local/bin', '/opt/homebrew/bin']) as $dir) {
+            $candidate = rtrim($dir, '/') . '/' . $name;
+            // @ يكتم تحذير open_basedir لمجلدات $PATH خارج القائمة المسموحة (مثل /usr/local/sbin)
+            // كي لا يحوّله Laravel إلى استثناء؛ is_executable يُرجع false بأمان للمسارات غير المتاحة.
+            if (@is_executable($candidate)) {
+                return $candidate;
             }
         }
         return null;

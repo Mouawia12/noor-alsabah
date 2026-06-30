@@ -4,8 +4,6 @@
 @section('title', $page_title)
 @section('content')
 
-    @php $threshold = (float) config('ai.confidence_threshold', 0.8); @endphp
-
     <div id="toaster" style="position:fixed;top:80px;left:20px;z-index:2000;min-width:300px"></div>
 
     <div class="card">
@@ -18,92 +16,11 @@
         </div>
         <div class="card-body">
             <div class="alert alert-light-primary py-2">اختر المحل لكل عقد، ثم اضغط «اعتماد» للصف أو «اعتماد الكل». للتعديل والاطلاع على الصورة اضغط «مراجعة/تعديل».</div>
-            <div class="table-responsive">
-                <table class="table table-row-bordered table-hover align-middle">
-                    <thead><tr class="fw-bold text-muted bg-light">
-                        <th>#</th><th>الملف/الصفحات</th><th>رقم العقد</th><th>المؤجر</th><th>القيمة</th><th>الثقة</th>
-                        <th style="min-width:160px">المحل / العقار <span class="text-danger">*</span></th><th>الإجراء</th>
-                    </tr></thead>
-                    <tbody>
-                        @forelse ($items as $i => $item)
-                            @php $d = $item->extracted_json['data'] ?? []; $conf = $item->confidence; $low = $conf !== null && $conf < $threshold; @endphp
-                            <tr data-item="{{ $item->id }}">
-                                <td>{{ $items->firstItem() + $i }}</td>
-                                <td>{{ \Illuminate\Support\Str::limit($item->batch->original_filename ?? '—', 18) }} <span class="text-muted fs-8">(ص {{ $item->page_from }}–{{ $item->page_to }})</span></td>
-                                <td class="fw-bold">{{ $d['contract_no'] ?? '—' }}</td>
-                                <td>{{ \Illuminate\Support\Str::limit($d['landlord'] ?? '—', 16) }}</td>
-                                <td>{{ $d['rent_value'] ?? '—' }}</td>
-                                <td>@if ($conf !== null)<span class="badge badge-light-{{ $low ? 'danger' : 'success' }}">{{ round($conf * 100) }}%</span>@endif @if ($item->is_duplicate)<span class="badge badge-light-danger">مكرر؟</span>@endif</td>
-                                <td>
-                                    <select class="form-select form-select-sm row-shop">
-                                        <option value="">— اختر —</option>
-                                        @foreach ($shops as $s)<option value="{{ $s->shop_id }}">{{ $s->shop_name }}</option>@endforeach
-                                    </select>
-                                </td>
-                                <td class="text-nowrap">
-                                    <button type="button" class="btn btn-sm btn-success js-approve" data-url="{{ route('dashboard.rent.ai.approve', $item->id) }}">اعتماد</button>
-                                    <button type="button" class="btn btn-sm btn-light-primary" data-bs-toggle="modal" data-bs-target="#rentModal{{ $item->id }}">مراجعة/تعديل</button>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="8" class="text-center text-muted py-5">لا توجد عقود بانتظار المراجعة.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
+            <div id="reviewList">
+                @include('dashboard.rent.ai._review_list', ['items' => $items, 'shops' => $shops])
             </div>
-            <div class="d-flex justify-content-center mt-3">{{ $items->links() }}</div>
         </div>
     </div>
-
-    {{-- نوافذ التعديل --}}
-    @foreach ($items as $item)
-        @php
-            $d = $item->extracted_json['data'] ?? []; $fc = $item->field_confidence ?? []; $conf = $item->confidence;
-            $pages = count(array_filter(explode(',', (string) $item->source_file_path)));
-            $cls = fn ($f) => (isset($fc[$f]) && $fc[$f] < $threshold) ? 'border border-danger' : '';
-        @endphp
-        <div class="modal fade" id="rentModal{{ $item->id }}" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-xl modal-dialog-scrollable">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3 class="modal-title">مراجعة عقد — {{ $item->batch->original_filename ?? '' }}
-                            @if ($conf !== null)<span class="badge badge-light-{{ $conf < $threshold ? 'danger' : 'success' }} ms-2">الثقة {{ round($conf * 100) }}%</span>@endif</h3>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="row g-5">
-                            <div class="col-lg-5"><div class="border rounded p-2 bg-light" style="max-height:60vh;overflow:auto">
-                                @for ($p = 0; $p < max(1, $pages); $p++)
-                                    <img src="{{ route('dashboard.rent.ai.image', ['item' => $item->id, 'page' => $p]) }}" loading="lazy" class="img-fluid mb-2 rounded shadow-sm w-100" alt="صفحة {{ $p + 1 }}" onerror="this.style.display='none'">
-                                @endfor
-                            </div></div>
-                            <div class="col-lg-7">
-                                <form class="js-modal-form" data-item="{{ $item->id }}">
-                                    <div class="row g-4">
-                                        <div class="col-md-6"><label class="form-label">رقم العقد</label><input type="text" name="contract_no" class="form-control {{ $cls('contract_no') }}" value="{{ $d['contract_no'] ?? '' }}"></div>
-                                        <div class="col-md-6"><label class="form-label">تاريخ البداية</label><input type="text" name="start_date" class="form-control {{ $cls('start_date') }}" value="{{ $d['start_date'] ?? '' }}" placeholder="YYYY-MM-DD"></div>
-                                        <div class="col-md-6"><label class="form-label">تاريخ النهاية</label><input type="text" name="end_date" class="form-control {{ $cls('end_date') }}" value="{{ $d['end_date'] ?? '' }}" placeholder="YYYY-MM-DD"></div>
-                                        <div class="col-md-3"><label class="form-label">قيمة الإيجار</label><input type="number" step="0.01" name="rent_value" class="form-control {{ $cls('rent_value') }}" value="{{ $d['rent_value'] ?? '' }}"></div>
-                                        <div class="col-md-3"><label class="form-label">عدد الدفعات</label><input type="number" name="payments_count" class="form-control {{ $cls('payments_count') }}" value="{{ $d['payments_count'] ?? '' }}"></div>
-                                        <div class="col-md-3"><label class="form-label">مبلغ الدفعة</label><input type="number" step="0.01" name="payment_amount" class="form-control {{ $cls('payment_amount') }}" value="{{ $d['payment_amount'] ?? '' }}"></div>
-                                        <div class="col-md-3"><label class="form-label">المؤجر</label><input type="text" name="landlord" class="form-control {{ $cls('landlord') }}" value="{{ $d['landlord'] ?? '' }}"></div>
-                                        <div class="col-md-6"><label class="form-label">المستأجر</label><input type="text" name="tenant" class="form-control {{ $cls('tenant') }}" value="{{ $d['tenant'] ?? '' }}"></div>
-                                        <div class="col-md-6"><label class="form-label">بيانات العقار</label><input type="text" name="property_info" class="form-control {{ $cls('property_info') }}" value="{{ $d['property_info'] ?? '' }}"></div>
-                                    </div>
-                                </form>
-                                <div class="form-text mt-2">المحل يُختار من الجدول. الحقول الحمراء منخفضة الثقة.</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">إغلاق</button>
-                        <button type="button" class="btn btn-light-danger js-reject" data-url="{{ route('dashboard.rent.ai.reject', $item->id) }}">رفض</button>
-                        <button type="button" class="btn btn-success js-modal-approve" data-item="{{ $item->id }}" data-url="{{ route('dashboard.rent.ai.approve', $item->id) }}">اعتماد العقد وتوليد الدفعات</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    @endforeach
 
 @endsection
 
@@ -121,15 +38,37 @@
         d.textContent = msg; t.appendChild(d);
         setTimeout(function(){ d.remove(); }, 4000);
     }
+    var PER_PAGE = 20;
     function hideModal(id){
-        var m = document.getElementById('rentModal'+id); if(!m) return;
-        if (window.bootstrap && bootstrap.Modal) { var i = bootstrap.Modal.getInstance(m); if(i){i.hide(); return;} }
-        var btn = m.querySelector('[data-bs-dismiss="modal"]'); if(btn) btn.click();
+        var m = document.getElementById('rentModal'+id);
+        if (m) {
+            if (window.bootstrap && bootstrap.Modal) { var i = bootstrap.Modal.getInstance(m); if(i){i.hide();} }
+            else { var btn = m.querySelector('[data-bs-dismiss="modal"]'); if(btn) btn.click(); }
+        }
+        /* إزالة أي تعتيم/قفل تمرير عالق قبل استبدال محتوى الجدول */
+        document.querySelectorAll('.modal-backdrop').forEach(function(b){ b.remove(); });
+        document.body.classList.remove('modal-open'); document.body.style.removeProperty('padding-right');
     }
-    function removeRow(id){
-        var tr = document.querySelector('tr[data-item="'+id+'"]'); if(tr) tr.remove();
-        hideModal(id);
-        var c = document.getElementById('reviewCount'); if(c) c.textContent = Math.max(0, (parseInt(c.textContent)||0) - 1);
+    function currentPage(){ var p = parseInt(new URLSearchParams(location.search).get('page')); return p>0 ? p : 1; }
+    /** يعيد جلب الصفحة الحالية من الخادم ويستبدل أسطر الجدول + العدّاد + الترقيم. */
+    function reloadList(page){
+        page = page || currentPage();
+        var u = new URL(location.href); u.searchParams.set('page', page);
+        return fetch(u.toString(), { credentials:'same-origin',
+            headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'} })
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                /* صفحة صارت فارغة بعد آخر اعتماد → ارجع لصفحة سابقة */
+                if (page > 1 && data.count <= (page - 1) * PER_PAGE) {
+                    var prev = page - 1;
+                    var nu = new URL(location.href); nu.searchParams.set('page', prev);
+                    history.replaceState({}, '', nu.toString());
+                    return reloadList(prev);
+                }
+                var list = document.getElementById('reviewList'); if(list) list.innerHTML = data.html;
+                var c = document.getElementById('reviewCount'); if(c) c.textContent = data.count;
+            })
+            .catch(function(){ location.reload(); });
     }
     function rowShop(id){
         var tr = document.querySelector('tr[data-item="'+id+'"]'); if(!tr) return '';
@@ -152,7 +91,7 @@
                 if(!shop){ toast('اختر المحل/العقار أولاً', false); return; }
                 a.disabled=true;
                 post(a.getAttribute('data-url'), {shop_id:shop})
-                    .then(function(res){ toast(res.message); removeRow(id); })
+                    .then(function(res){ toast(res.message); hideModal(id); reloadList(); })
                     .catch(function(err){ a.disabled=false; toast(err && err.message ? err.message : 'تعذّر الاعتماد', false); });
                 return;
             }
@@ -164,7 +103,7 @@
                 if(form){ new FormData(form).forEach(function(v,k){ body[k]=v; }); }
                 ma.disabled=true;
                 post(ma.getAttribute('data-url'), body)
-                    .then(function(res){ toast(res.message); removeRow(id2); })
+                    .then(function(res){ toast(res.message); hideModal(id2); reloadList(); })
                     .catch(function(err){ ma.disabled=false; toast(err && err.message ? err.message : 'تعذّر الاعتماد', false); });
                 return;
             }
@@ -173,7 +112,7 @@
                 if(!confirm('تأكيد رفض هذا العقد؟')) return;
                 var id3=rj.closest('.modal').id.replace('rentModal','');
                 post(rj.getAttribute('data-url'), {reason:'رُفض يدوياً'})
-                    .then(function(res){ toast(res.message); removeRow(id3); })
+                    .then(function(res){ toast(res.message); hideModal(id3); reloadList(); })
                     .catch(function(){ toast('تعذّر الرفض', false); });
                 return;
             }
@@ -186,11 +125,20 @@
                 all.disabled=true;
                 post(all.getAttribute('data-url'), {items:rows})
                     .then(function(res){
-                        rows.forEach(function(r){ if(r.shop_id && !(res.errors||[]).some(function(e){return e.id==r.id;})) removeRow(r.id); });
                         toast('تم اعتماد '+res.approved+' عقد'+(res.errors&&res.errors.length?' (تخطّي '+res.errors.length+')':''));
-                        all.disabled=false;
+                        all.disabled=false; reloadList();
                     })
                     .catch(function(){ all.disabled=false; toast('تعذّر الاعتماد الجماعي', false); });
+                return;
+            }
+            /* اعتراض روابط الترقيم → تنقّل بـ AJAX بلا إعادة تحميل كاملة */
+            var pg = e.target.closest('#reviewList .pagination a');
+            if (pg){ e.preventDefault();
+                var href = pg.getAttribute('href'); if(!href) return;
+                var p = parseInt(new URLSearchParams(new URL(href, location.origin).search).get('page')) || 1;
+                var nu = new URL(location.href); nu.searchParams.set('page', p);
+                history.pushState({}, '', nu.toString());
+                reloadList(p);
                 return;
             }
         });

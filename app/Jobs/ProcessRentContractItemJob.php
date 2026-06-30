@@ -13,6 +13,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * معالجة عقد إيجار واحد: استخراج → كشف تكرار (برقم العقد) → بحاجة مراجعة.
@@ -114,11 +115,16 @@ class ProcessRentContractItemJob implements ShouldQueue
 
             $user = $batch->create_user ? \App\Models\User::find($batch->create_user) : null;
             if ($user && $user->email) {
-                $user->notify(new \App\Notifications\BatchCompletedNotification(
-                    'rent', $batch->original_filename, $batch->total_items,
-                    $batch->processed_items, $batch->failed_items,
-                    route('dashboard.rent.ai.review', ['batch_id' => $batch->id])
-                ));
+                // إشعار الإكمال غير حرج: فشله (مثلاً SMTP محظور) يجب ألا يُفشل معالجة العنصر
+                try {
+                    $user->notify(new \App\Notifications\BatchCompletedNotification(
+                        'rent', $batch->original_filename, $batch->total_items,
+                        $batch->processed_items, $batch->failed_items,
+                        route('dashboard.rent.ai.review', ['batch_id' => $batch->id])
+                    ));
+                } catch (\Throwable $e) {
+                    Log::warning('BatchCompletedNotification (rent) failed: ' . $e->getMessage());
+                }
             }
         }
     }

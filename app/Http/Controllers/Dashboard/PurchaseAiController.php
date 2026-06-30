@@ -9,6 +9,7 @@ use App\Services\Ai\PdfService;
 use App\Services\Ai\PurchaseImportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -91,15 +92,21 @@ class PurchaseAiController extends Controller
     {
         $page_title = 'مراجعة واعتماد الفواتير المستخرجة';
 
-        $query = PurchaseImportItem::with('batch')
-            ->where('status', PurchaseImportItem::STATUS_NEEDS_REVIEW)
-            ->latest();
+        $query = PurchaseImportItem::with('batch')->needsReviewOrdered();
 
         if ($request->filled('batch_id')) {
             $query->where('batch_id', $request->batch_id);
         }
 
-        $items = $query->paginate(20);
+        $items = $query->paginate(20)->withQueryString();
+
+        // طلب AJAX (إعادة جلب بعد اعتماد/رفض/تنقّل) → نُعيد جزء الجدول فقط.
+        if ($request->ajax()) {
+            return response()->json([
+                'html'  => view('dashboard.purchase.ai._review_list', compact('items'))->render(),
+                'count' => $items->total(),
+            ]);
+        }
 
         return view('dashboard.purchase.ai.review', compact('page_title', 'items'));
     }

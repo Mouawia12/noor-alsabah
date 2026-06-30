@@ -84,16 +84,22 @@ class RentAiController extends Controller
     {
         $page_title = 'مراجعة واعتماد العقود المستخرجة';
 
-        $query = RentContractImportItem::with('batch')
-            ->where('status', RentContractImportItem::STATUS_NEEDS_REVIEW)
-            ->latest();
+        $query = RentContractImportItem::with('batch')->needsReviewOrdered();
 
         if ($request->filled('batch_id')) {
             $query->where('batch_id', $request->batch_id);
         }
 
-        $items = $query->paginate(20);
+        $items = $query->paginate(20)->withQueryString();
         $shops = DB::table('shop')->orderBy('shop_name')->get(['shop_id', 'shop_name']);
+
+        // طلب AJAX (إعادة جلب بعد اعتماد/رفض/تنقّل) → نُعيد جزء الجدول فقط.
+        if ($request->ajax()) {
+            return response()->json([
+                'html'  => view('dashboard.rent.ai._review_list', compact('items', 'shops'))->render(),
+                'count' => $items->total(),
+            ]);
+        }
 
         return view('dashboard.rent.ai.review', compact('page_title', 'items', 'shops'));
     }
