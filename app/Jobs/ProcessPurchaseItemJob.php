@@ -74,7 +74,10 @@ class ProcessPurchaseItemJob implements ShouldQueue
             // 4) مطابقة مورد (اقتراح فقط)
             $supplier = $suppliers->match($data['supplier_name'] ?? null, $data['tax_number'] ?? null);
 
-            // تخزين النتائج + الميتا للمراجعة
+            // 5) قرار القبول/الرفض بأسباب واضحة للمستخدم
+            $reasons = $this->rejectionReasons($data, $result->confidence);
+            $accepted = empty($reasons);
+
             $item->update([
                 'extracted_json' => [
                     'data'       => $data,
@@ -86,18 +89,20 @@ class ProcessPurchaseItemJob implements ShouldQueue
                 'field_confidence'         => $result->fieldConfidence,
                 'is_duplicate'             => $dup['is_duplicate'],
                 'duplicate_of_purchase_id' => $dup['purchase_id'],
-                'status'                   => PurchaseImportItem::STATUS_NEEDS_REVIEW,
-                'error_reason'             => $validation['issues'] ? implode(' | ', $validation['issues']) : null,
+                'status'                   => $accepted ? PurchaseImportItem::STATUS_NEEDS_REVIEW : PurchaseImportItem::STATUS_FAILED,
+                // الفواتير المرفوضة: سبب الرفض. المقبولة: ملاحظات تحقق إن وُجدت.
+                'error_reason'             => $accepted
+                    ? ($validation['issues'] ? implode(' | ', $validation['issues']) : null)
+                    : implode(' | ', $reasons),
             ]);
 
-            AiAuditLog::record('purchase_item', $item->id, 'extracted', [
+            AiAuditLog::record('purchase_item', $item->id, $accepted ? 'extracted' : 'rejected', [
                 'confidence' => $result->confidence,
                 'model'      => $result->model,
-                'duplicate'  => $dup['is_duplicate'],
-                'issues'     => $validation['issues'],
+                'reasons'    => $reasons,
             ], $item->batch->create_user ?? null);
 
-            $this->bumpBatch($item->batch_id, processed: true);
+            $this->bumpBatch($item->batch_id, processed: $accepted);
         } catch (\Throwable $e) {
             $item->update([
                 'status'       => PurchaseImportItem::STATUS_FAILED,
@@ -121,18 +126,39 @@ class ProcessPurchaseItemJob implements ShouldQueue
 
         $batch->refresh();
         if (($batch->processed_items + $batch->failed_items) >= $batch->total_items && $batch->total_items > 0) {
-            // دمج صفحات التكملة مع فواتيرها (لا تظهر صفحة فارغة كفاتورة)
-            $items = PurchaseImportItem::where('batch_id', $batch->id)
-                ->where('status', PurchaseImportItem::STATUS_NEEDS_REVIEW)
-                ->orderBy('page_from')->get();
-            $docs = app(\App\Services\Ai\PageMergeService::class)->merge(
-                $items, ['invoice_no'], ['total', 'amount_before_tax'], PurchaseImportItem::STATUS_MERGED
-            );
-
+            // الفواتير: صفحة = فاتورة (لا دمج). المقبولة في المراجعة، والمرفوضة في شاشة مستقلة بأسبابها.
             $batch->update(['status' => PurchaseImportBatch::STATUS_COMPLETED]);
-            AiAuditLog::record('purchase_batch', $batch->id, 'merged', ['documents' => $docs], $batch->create_user);
+            AiAuditLog::record('purchase_batch', $batch->id, 'completed', [
+                'accepted' => $batch->processed_items,
+                'rejected' => $batch->failed_items,
+            ], $batch->create_user);
             $this->notifyUploader($batch);
         }
+    }
+
+    /**
+     * أسباب رفض الفاتورة (قائمة فارغة = مقبولة). تُعرض للمستخدم في شاشة المرفوضة.
+     */
+    protected function rejectionReasons(array $data, ?float $confidence): array
+    {
+        $hasInvoiceNo = ! empty($data['invoice_no']);
+        $hasTotal = is_numeric($data['total'] ?? null);
+
+        if (! $hasInvoiceNo && ! $hasTotal) {
+            return ['الملف لا يحتوي فاتورة واضحة (تعذّر قراءة رقم الفاتورة والإجمالي) — قد تكون الصورة غير واضحة'];
+        }
+
+        $reasons = [];
+        if (! $hasInvoiceNo) {
+            $reasons[] = 'رقم الفاتورة غير مقروء أو غير موجود';
+        }
+        if (! $hasTotal) {
+            $reasons[] = 'إجمالي الفاتورة غير مقروء';
+        }
+        if ($confidence !== null && $confidence < 0.35) {
+            $reasons[] = 'الصورة غير واضحة (ثقة الاستخراج منخفضة جداً)';
+        }
+        return $reasons;
     }
 
     /** إشعار من رفع الدفعة باكتمالها (إن كان له بريد). */

@@ -8,6 +8,11 @@
         <div class="alert alert-success">{{ session('alert.success') }}</div>
     @endif
 
+    <div class="alert alert-light-warning">
+        هذه الفواتير التي تعذّر على النظام قراءتها أو كانت بياناتها ناقصة، مع توضيح السبب.
+        صحّح المشكلة (مثل صورة أوضح) ثم اضغط «إعادة المعالجة» أو أعد رفع الملف.
+    </div>
+
     @if ($failedBatches->isNotEmpty())
         <div class="card mb-5">
             <div class="card-header"><h3 class="card-title text-danger">دفعات فشلت بالكامل</h3></div>
@@ -33,7 +38,7 @@
     @endif
 
     <div class="card">
-        <div class="card-header"><h3 class="card-title">فواتير تعذّرت معالجتها</h3></div>
+        <div class="card-header"><h3 class="card-title text-danger">الفواتير المرفوضة (غير المقبولة)</h3></div>
         <div class="card-body table-responsive">
             <table class="table table-row-bordered align-middle">
                 <thead><tr class="fw-bold text-muted"><th>الملف</th><th>الصفحات</th><th>السبب</th><th></th></tr></thead>
