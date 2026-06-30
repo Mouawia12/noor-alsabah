@@ -40,12 +40,16 @@
         <div class="card-header"><h3 class="card-title text-danger">دفعات متأخرة</h3></div>
         <div class="card-body table-responsive">
             <table class="table table-row-bordered align-middle">
-                <thead><tr class="fw-bold text-muted"><th>المحل</th><th>تاريخ الاستحقاق</th><th>المبلغ</th><th></th></tr></thead>
+                <thead><tr class="fw-bold text-muted"><th>العقد</th><th>العقار</th><th>المستأجر</th><th>الدفعة</th><th>الاستحقاق</th><th>أيام التأخير</th><th>المبلغ</th><th></th></tr></thead>
                 <tbody>
                     @forelse ($overdue as $p)
                         <tr>
+                            <td class="fw-bold">{{ $p->contract_no ?? '—' }}</td>
                             <td>{{ $p->shop_name ?? 'محل #' . $p->shop_id }}</td>
+                            <td>{{ \Illuminate\Support\Str::limit($p->tenant ?? '—', 18) }}</td>
+                            <td><span class="badge badge-light-dark">{{ $p->pay_no ?? '?' }} من {{ $p->pay_total ?? '?' }}</span></td>
                             <td><span class="badge badge-light-danger">{{ \Carbon\Carbon::parse($p->rentpay_dt)->format('Y-m-d') }}</span></td>
+                            <td><span class="badge badge-danger">{{ (int) $p->days_overdue }} يوم</span></td>
                             <td>{{ $p->rentpay_price }}</td>
                             <td>
                                 <form action="{{ route('dashboard.rent.alerts.pay', $p->rentpay_id) }}" method="POST">
@@ -54,7 +58,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="text-center text-muted">لا توجد دفعات متأخرة.</td></tr>
+                        <tr><td colspan="8" class="text-center text-muted">لا توجد دفعات متأخرة.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -66,12 +70,16 @@
         <div class="card-header"><h3 class="card-title text-warning">دفعات مستحقة قريباً</h3></div>
         <div class="card-body table-responsive">
             <table class="table table-row-bordered align-middle">
-                <thead><tr class="fw-bold text-muted"><th>المحل</th><th>تاريخ الاستحقاق</th><th>المبلغ</th><th></th></tr></thead>
+                <thead><tr class="fw-bold text-muted"><th>العقد</th><th>العقار</th><th>المستأجر</th><th>الدفعة</th><th>الاستحقاق</th><th>الأيام المتبقية</th><th>المبلغ</th><th></th></tr></thead>
                 <tbody>
                     @forelse ($upcoming as $p)
                         <tr>
+                            <td class="fw-bold">{{ $p->contract_no ?? '—' }}</td>
                             <td>{{ $p->shop_name ?? 'محل #' . $p->shop_id }}</td>
+                            <td>{{ \Illuminate\Support\Str::limit($p->tenant ?? '—', 18) }}</td>
+                            <td><span class="badge badge-light-dark">{{ $p->pay_no ?? '?' }} من {{ $p->pay_total ?? '?' }}</span></td>
                             <td><span class="badge badge-light-warning">{{ \Carbon\Carbon::parse($p->rentpay_dt)->format('Y-m-d') }}</span></td>
+                            <td><span class="badge badge-light-info">{{ abs((int) $p->days_overdue) }} يوم</span></td>
                             <td>{{ $p->rentpay_price }}</td>
                             <td>
                                 <form action="{{ route('dashboard.rent.alerts.pay', $p->rentpay_id) }}" method="POST">
@@ -80,7 +88,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="text-center text-muted">لا توجد دفعات مستحقة قريباً.</td></tr>
+                        <tr><td colspan="8" class="text-center text-muted">لا توجد دفعات مستحقة قريباً.</td></tr>
                     @endforelse
                 </tbody>
             </table>

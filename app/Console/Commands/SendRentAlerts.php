@@ -37,13 +37,13 @@ class SendRentAlerts extends Command
             return self::SUCCESS;
         }
 
-        // عيّنات نصية مختصرة للعرض في الإشعار/البريد
+        // عيّنات مفصّلة (عقد/أطراف/رقم الدفعة/المبلغ/الاستحقاق/الحالة/أيام التأخير)
         $samples = [];
-        foreach ($data['overdue']->take(5) as $p) {
-            $samples[] = 'متأخرة: ' . ($p->shop_name ?? 'محل #' . $p->shop_id) . ' بتاريخ ' . Carbon::parse($p->rentpay_dt)->format('Y-m-d') . ' (' . $p->rentpay_price . ')';
+        foreach ($data['overdue']->take(6) as $p) {
+            $samples[] = \App\Services\Ai\RentAlertService::describePayment($p);
         }
-        foreach ($data['upcoming']->take(5) as $p) {
-            $samples[] = 'مستحقة قريباً: ' . ($p->shop_name ?? 'محل #' . $p->shop_id) . ' بتاريخ ' . Carbon::parse($p->rentpay_dt)->format('Y-m-d') . ' (' . $p->rentpay_price . ')';
+        foreach ($data['upcoming']->take(6) as $p) {
+            $samples[] = \App\Services\Ai\RentAlertService::describePayment($p);
         }
 
         $url = route('dashboard.rent.alerts.index');
