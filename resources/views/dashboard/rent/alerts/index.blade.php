@@ -5,7 +5,12 @@
 @section('content')
 
     @if (session()->has('alert.success'))
-        <div class="alert alert-success">{{ session('alert.success') }}</div>
+        <div class="alert alert-success d-flex align-items-center justify-content-between">
+            <span>{{ session('alert.success') }}</span>
+            @if (session()->has('receipt_url'))
+                <a href="{{ session('receipt_url') }}" target="_blank" class="btn btn-sm btn-light-primary"><i class="fas fa-file-pdf me-1"></i> تنزيل سند الاستلام</a>
+            @endif
+        </div>
     @endif
 
     <div class="row g-5 mb-5">

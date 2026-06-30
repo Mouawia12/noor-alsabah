@@ -349,6 +349,7 @@ Route::group([
         // ===== لوحة متابعة الإيجارات والتنبيهات =====
         Route::get('/rent/alerts', [RentAlertsController::class, 'index'])->name('rent.alerts.index');
         Route::post('/rent/alerts/pay/{rentpay}', [RentAlertsController::class, 'markPaid'])->name('rent.alerts.pay');
+        Route::get('/rent/alerts/receipt/{rentpay}', [RentAlertsController::class, 'receipt'])->name('rent.alerts.receipt');
 
         // ===== التحليلات والتنبؤات الذكية =====
         Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
