@@ -10,6 +10,7 @@ use App\Services\Ai\RentImportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -192,7 +193,15 @@ class RentAiController extends Controller
 
     public function approve(Request $request, RentContractImportItem $item)
     {
-        $request->validate(['shop_id' => ['required']], ['shop_id.required' => 'يجب اختيار المحل/العقار المرتبط بالعقد.']);
+        $this->guardAiItem($item);
+
+        $request->validate(
+            ['shop_id' => ['required', 'exists:shop,shop_id']],
+            [
+                'shop_id.required' => 'يجب اختيار المحل/العقار المرتبط بالعقد.',
+                'shop_id.exists' => 'المحل/العقار المختار غير موجود.',
+            ]
+        );
 
         $overrides = $request->only([
             'contract_no', 'start_date', 'end_date', 'landlord', 'tenant',
@@ -200,7 +209,6 @@ class RentAiController extends Controller
             'renewal_terms', 'termination_terms', 'note', 'shop_id',
         ]);
 
-        $this->guardAiItem($item);
         $shopRentId = $this->importService->approveItem($item, array_filter($overrides, fn ($v) => $v !== null && $v !== ''), Auth::id());
 
         $msg = "تم اعتماد العقد رقم {$shopRentId} وتوليد دفعاته.";
@@ -228,11 +236,16 @@ class RentAiController extends Controller
                 $errors[] = ['id' => (int) $id, 'msg' => 'لم يُختر المحل'];
                 continue;
             }
+            if (! DB::table('shop')->where('shop_id', $shopId)->exists()) {
+                $errors[] = ['id' => (int) $id, 'msg' => 'المحل المختار غير موجود'];
+                continue;
+            }
             try {
                 $this->guardAiItem($item);
                 $this->importService->approveItem($item, ['shop_id' => $shopId], Auth::id());
                 $approved++;
             } catch (\Throwable $e) {
+                Log::error('فشل الاعتماد الجماعي لعقد الإيجار', ['item_id' => (int) $id, 'error' => $e->getMessage()]);
                 $errors[] = ['id' => (int) $id, 'msg' => 'تعذّر الاعتماد'];
             }
         }

@@ -10,6 +10,7 @@ use App\Services\Ai\PurchaseImportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -219,6 +220,8 @@ class PurchaseAiController extends Controller
     /** اعتماد عنصر وإنشاء سجل مشتريات. */
     public function approve(Request $request, PurchaseImportItem $item)
     {
+        $this->guardAiItem($item);
+
         $overrides = $request->only([
             'invoice_no', 'invoice_date', 'tax_number', 'currency',
             'amount_before_tax', 'tax_amount', 'total', 'note',
@@ -237,7 +240,6 @@ class PurchaseAiController extends Controller
             }
         }
 
-        $this->guardAiItem($item);
         $purchaseId = $this->importService->approveItem($item, $overrides, Auth::id());
 
         $msg = "تم اعتماد الفاتورة وإنشاء سجل المشتريات رقم {$purchaseId}.";
@@ -270,6 +272,7 @@ class PurchaseAiController extends Controller
                 $this->importService->approveItem($item, $overrides, Auth::id());
                 $approved++;
             } catch (\Throwable $e) {
+                Log::error('فشل الاعتماد الجماعي لعنصر المشتريات', ['item_id' => (int) $id, 'error' => $e->getMessage()]);
                 $errors[] = ['id' => (int) $id, 'msg' => 'تعذّر الاعتماد'];
             }
         }

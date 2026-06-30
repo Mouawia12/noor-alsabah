@@ -5,6 +5,7 @@ namespace App\Services\Ai\Engines;
 use App\Services\Ai\Contracts\ExtractionEngine;
 use App\Services\Ai\DTO\ExtractionResult;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
 use RuntimeException;
 
 /**
@@ -135,7 +136,11 @@ class OpenAiEngine implements ExtractionEngine
 
                 return json_decode((string) $res->getBody(), true) ?: [];
             } catch (\Throwable $e) {
-                $status = method_exists($e, 'getCode') ? (int) $e->getCode() : 0;
+                // الحالة الحقيقية من رد Guzzle عند توفّره (getCode غالباً 0 لأخطاء الاتصال).
+                $status = 0;
+                if ($e instanceof RequestException && $e->hasResponse()) {
+                    $status = $e->getResponse()->getStatusCode();
+                }
                 $retriable = in_array($status, [429, 500, 502, 503, 504], true) || $status === 0;
 
                 if (! $retriable || $attempt >= $maxRetries) {
