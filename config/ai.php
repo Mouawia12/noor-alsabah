@@ -22,10 +22,12 @@ return [
     'openai' => [
         'api_key'     => env('OPENAI_API_KEY'),
         'base_url'    => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
-        'model'       => env('OPENAI_MODEL', 'gpt-4o-mini'),
-        'model_heavy' => env('OPENAI_MODEL_HEAVY', 'gpt-4o'),
+        'model'       => env('OPENAI_MODEL', 'gpt-5.5'),
+        'model_heavy' => env('OPENAI_MODEL_HEAVY', 'gpt-5.5'),
         'timeout'     => (int) env('OPENAI_TIMEOUT', 120),
         'max_retries' => (int) env('OPENAI_MAX_RETRIES', 3),
+        // اتركه فارغاً مع نماذج gpt-5.x/o-series (ترفض temperature). للنماذج الأقدم يمكن ضبطه 0.
+        'temperature' => env('OPENAI_TEMPERATURE', null),
     ],
 
     /*

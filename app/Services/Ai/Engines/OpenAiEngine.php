@@ -47,7 +47,6 @@ class OpenAiEngine implements ExtractionEngine
 
         $body = [
             'model'    => $model,
-            'temperature' => 0,
             'messages' => [
                 ['role' => 'system', 'content' => $instructions],
                 ['role' => 'user', 'content' => $content],
@@ -61,6 +60,7 @@ class OpenAiEngine implements ExtractionEngine
                 ],
             ],
         ];
+        $this->applyTemperature($body);
 
         $json = $this->request($body);
         $parsed = $this->parseContent($json);
@@ -94,7 +94,6 @@ class OpenAiEngine implements ExtractionEngine
 
         $body = [
             'model'       => $this->cfg['model'] ?? 'gpt-4o-mini',
-            'temperature' => 0,
             'messages'    => [
                 ['role' => 'system', 'content' => 'هل هذه الصفحة بداية مستند/فاتورة/عقد جديد (وليست استكمالاً للصفحة السابقة)؟ أعد القرار ونسبة الثقة.'],
                 ['role' => 'user', 'content' => [
@@ -106,6 +105,7 @@ class OpenAiEngine implements ExtractionEngine
                 'json_schema' => ['name' => 'boundary', 'strict' => true, 'schema' => $schema],
             ],
         ];
+        $this->applyTemperature($body);
 
         $parsed = $this->parseContent($this->request($body));
 
@@ -113,6 +113,18 @@ class OpenAiEngine implements ExtractionEngine
             'is_new_document' => (bool) ($parsed['is_new_document'] ?? true),
             'confidence'      => (float) ($parsed['confidence'] ?? 0),
         ];
+    }
+
+    /**
+     * يُضيف temperature فقط إن ضُبط صراحةً في الإعداد.
+     * نماذج الجيل الجديد (gpt-5.x / o-series) ترفض temperature، فالافتراضي عدم إرساله.
+     */
+    protected function applyTemperature(array &$body): void
+    {
+        $t = $this->cfg['temperature'] ?? null;
+        if ($t !== null && $t !== '') {
+            $body['temperature'] = (float) $t;
+        }
     }
 
     /** استدعاء API مع إعادة محاولة بـ backoff على 429/5xx. */
