@@ -23,15 +23,40 @@
                 <span class="spinner-border spinner-border-sm text-primary ms-3" role="status"></span>
                 <span>جاري معالجة الفواتير الآن، يرجى الانتظار... (تُعالَج في الخلفية؛ يمكنك متابعة التقدّم هنا)</span>
             </div>
-            <div class="d-flex gap-10 text-gray-700">
-                <span>الكلي: <b id="totalItems">{{ $batch->total_items }}</b></span>
-                <span>المعالَج: <b id="processedItems">{{ $batch->processed_items }}</b></span>
-                <span>الفاشل: <b id="failedItems" class="text-danger">{{ $batch->failed_items }}</b></span>
+
+            {{-- عدّادات واضحة: الإجمالي / مقبولة / مرفوضة --}}
+            <div class="row g-4 mb-2">
+                <div class="col-4">
+                    <div class="bg-light-primary rounded p-4 text-center">
+                        <div class="fs-2 fw-bolder text-primary" id="totalItems">{{ $batch->total_items }}</div>
+                        <div class="fs-7 text-gray-700">إجمالي الفواتير</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="bg-light-success rounded p-4 text-center">
+                        <div class="fs-2 fw-bolder text-success" id="processedItems">{{ $batch->processed_items }}</div>
+                        <div class="fs-7 text-gray-700"><i class="fas fa-check me-1"></i>مقبولة</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="bg-light-danger rounded p-4 text-center">
+                        <div class="fs-2 fw-bolder text-danger" id="failedItems">{{ $batch->failed_items }}</div>
+                        <div class="fs-7 text-gray-700"><i class="fas fa-times me-1"></i>مرفوضة</div>
+                    </div>
+                </div>
             </div>
+
             <div id="errorBox" class="alert alert-danger mt-5 {{ $batch->error_reason ? '' : 'd-none' }}">{{ $batch->error_reason }}</div>
             <div id="doneBox" class="mt-5 d-none">
-                <a href="{{ route('dashboard.purchase.ai.review', ['batch_id' => $batch->id]) }}" class="btn btn-success">انتقل إلى المراجعة والاعتماد</a>
-                <a href="{{ route('dashboard.purchase.ai.batch.report', $batch->id) }}" class="btn btn-light-primary">تقرير حالة الفواتير</a>
+                <div class="alert alert-success d-flex align-items-center">
+                    <i class="fas fa-check-circle fs-2 me-3"></i>
+                    <span>اكتملت المعالجة — <b id="sumAccepted">0</b> فاتورة مقبولة و<b id="sumRejected">0</b> مرفوضة. راجِع المقبولة ورحِّلها إلى الفرع، أو اطّلع على أسباب رفض المرفوضة.</span>
+                </div>
+                <div class="d-flex flex-wrap gap-3">
+                    <a href="{{ route('dashboard.purchase.ai.review', ['batch_id' => $batch->id]) }}" class="btn btn-success"><i class="fas fa-check-double me-1"></i>مراجعة وترحيل المقبولة (<span id="btnAccepted">0</span>)</a>
+                    <a href="{{ route('dashboard.purchase.ai.failed') }}" id="btnRejectedLink" class="btn btn-light-danger d-none"><i class="fas fa-times-circle me-1"></i>عرض المرفوضة (<span id="btnRejected">0</span>)</a>
+                    <a href="{{ route('dashboard.purchase.ai.batch.report', $batch->id) }}" class="btn btn-light-primary"><i class="fas fa-list me-1"></i>تقرير حالة كل فاتورة</a>
+                </div>
             </div>
         </div>
     </div>
@@ -60,6 +85,14 @@
         }
         if (d.status === 'completed' || d.status === 'failed') {
             var pm = document.getElementById('processingMsg'); if (pm) pm.classList.add('d-none');
+            var accepted = d.processed_items || 0, rejected = d.failed_items || 0;
+            document.getElementById('sumAccepted').innerText = accepted;
+            document.getElementById('sumRejected').innerText = rejected;
+            document.getElementById('btnAccepted').innerText = accepted;
+            document.getElementById('btnRejected').innerText = rejected;
+            // زر المرفوضة يظهر فقط عند وجود مرفوضة
+            var rl = document.getElementById('btnRejectedLink');
+            if (rejected > 0) { rl.classList.remove('d-none'); } else { rl.classList.add('d-none'); }
             if (done > 0) reviewBtn.classList.remove('d-none');
             return true; // توقف
         }
