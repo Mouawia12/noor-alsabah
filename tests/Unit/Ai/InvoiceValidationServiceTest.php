@@ -54,3 +54,19 @@ it('flags an unparseable date but accepts a day-first one', function () {
     $good = $this->svc->validate(['invoice_no' => 'X', 'invoice_date' => '13/05/2026']);
     expect($good['issues'])->not->toContain('تاريخ الفاتورة بصيغة غير واضحة.');
 });
+
+it('flags a missing tax number (client requested reason)', function () {
+    $res = $this->svc->validate(['invoice_no' => 'X', 'total' => 100]);
+    expect($res['issues'])->toContain('الرقم الضريبي غير موجود.');
+});
+
+it('flags a malformed tax number differently from a missing one', function () {
+    $res = $this->svc->validate(['invoice_no' => 'X', 'tax_number' => 'ABC']);
+    expect($res['issues'])->toContain('الرقم الضريبي بصيغة غير معتادة.');
+    expect($res['issues'])->not->toContain('الرقم الضريبي غير موجود.');
+});
+
+it('labels a tax mismatch clearly', function () {
+    $res = $this->svc->validate(['invoice_no' => 'X', 'amount_before_tax' => 100, 'tax_amount' => 15, 'total' => 200]);
+    expect($res['issues'])->toContain('قيمة الضريبة غير متطابقة: الإجمالي لا يساوي (المبلغ قبل الضريبة + الضريبة).');
+});

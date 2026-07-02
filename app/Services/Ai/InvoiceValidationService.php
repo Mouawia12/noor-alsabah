@@ -22,7 +22,7 @@ class InvoiceValidationService
         if ($before !== null && $tax !== null && $total !== null) {
             // سماحية بسيطة للتقريب
             if (abs(($before + $tax) - $total) > 0.05) {
-                $issues[] = 'الإجمالي لا يساوي (المبلغ قبل الضريبة + الضريبة).';
+                $issues[] = 'قيمة الضريبة غير متطابقة: الإجمالي لا يساوي (المبلغ قبل الضريبة + الضريبة).';
                 $mathOk = false;
             }
         }
@@ -35,7 +35,10 @@ class InvoiceValidationService
             $issues[] = 'تاريخ الفاتورة بصيغة غير واضحة.';
         }
 
-        if (! empty($data['tax_number']) && ! preg_match('/^\d{10,15}$/', preg_replace('/\s+/', '', (string) $data['tax_number']))) {
+        // الرقم الضريبي: تمييز الغياب الكامل عن الصيغة الخاطئة (طلب العميل: «الرقم الضريبي غير موجود»)
+        if (empty($data['tax_number'])) {
+            $issues[] = 'الرقم الضريبي غير موجود.';
+        } elseif (! preg_match('/^\d{10,15}$/', preg_replace('/\s+/', '', (string) $data['tax_number']))) {
             $issues[] = 'الرقم الضريبي بصيغة غير معتادة.';
         }
 

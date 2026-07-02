@@ -71,10 +71,20 @@ class RentAlertsController extends Controller
         \PDF::setPrintHeader(false);
         \PDF::setPrintFooter(false);
         \PDF::AddPage();
-        $logo = public_path('assets/media/logos/Logopdf.jpg');
-        if (is_file($logo)) {
-            \PDF::Image($logo, 90, 8, 30, '', 'JPG', '', 'C');
-            \PDF::SetY(40);
+        // مطبوعة الفوالين الرسمية إن وُفّرت (ترويسة كاملة العرض)، وإلا الشعار الافتراضي
+        $letterhead = config('ai.receipt_letterhead');
+        $letterheadPath = $letterhead ? public_path($letterhead) : null;
+        if ($letterheadPath && is_file($letterheadPath)) {
+            $ext = strtoupper(pathinfo($letterheadPath, PATHINFO_EXTENSION));
+            $ext = $ext === 'JPEG' ? 'JPG' : ($ext ?: 'JPG');
+            \PDF::Image($letterheadPath, 10, 8, 190, '', $ext, '', 'C');
+            \PDF::SetY(45);
+        } else {
+            $logo = public_path('assets/media/logos/Logopdf.jpg');
+            if (is_file($logo)) {
+                \PDF::Image($logo, 90, 8, 30, '', 'JPG', '', 'C');
+                \PDF::SetY(40);
+            }
         }
         \PDF::SetFont('aealarabiya', '', 12);
         \PDF::writeHTML($html, true, false, true, false, '');
