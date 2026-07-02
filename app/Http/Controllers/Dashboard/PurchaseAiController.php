@@ -326,9 +326,16 @@ class PurchaseAiController extends Controller
             return back()->with('alert.error', $e->getMessage());
         }
 
-        $msg = "تم ترحيل الفاتورة إلى الفرع وإنشاء سجل المشتريات رقم {$purchaseId}.";
+        // اسم الفرع في الرسالة حتى يعرف المستخدم أين رُحّلت الفاتورة بالضبط
+        $shopName = ! empty($overrides['shop_id'])
+            ? Shop::where('shop_id', $overrides['shop_id'])->value('shop_name')
+            : null;
+        $msg = $shopName
+            ? "تم ترحيل الفاتورة إلى فرع «{$shopName}» وإنشاء سجل المشتريات رقم {$purchaseId}."
+            : "تم ترحيل الفاتورة وإنشاء سجل المشتريات رقم {$purchaseId}.";
+
         if ($request->expectsJson() || $request->ajax()) {
-            return response()->json(['ok' => true, 'message' => $msg, 'item_id' => $item->id]);
+            return response()->json(['ok' => true, 'message' => $msg, 'item_id' => $item->id, 'shop_name' => $shopName]);
         }
         return back()->with('alert.success', $msg);
     }
@@ -342,6 +349,12 @@ class PurchaseAiController extends Controller
         // الفرع إلزامي للترحيل الجماعي (طلب العميل: اختيار المحل قبل الترحيل)
         if ($shopId === null || $shopId === '') {
             return response()->json(['ok' => false, 'message' => 'يرجى اختيار الفرع/المحل قبل ترحيل الفواتير.'], 422);
+        }
+
+        // اسم الفرع للتأكيد الواضح (حتى لا تختلط الفواتير بين الفروع)
+        $shopName = Shop::where('shop_id', $shopId)->value('shop_name');
+        if (! $shopName) {
+            return response()->json(['ok' => false, 'message' => 'الفرع المحدد غير موجود، يرجى اختيار فرع صحيح.'], 422);
         }
 
         $approved = 0;
@@ -370,7 +383,7 @@ class PurchaseAiController extends Controller
             }
         }
 
-        return response()->json(['ok' => true, 'approved' => $approved, 'errors' => $errors]);
+        return response()->json(['ok' => true, 'approved' => $approved, 'errors' => $errors, 'shop_name' => $shopName]);
     }
 
     /** رفض عنصر. */

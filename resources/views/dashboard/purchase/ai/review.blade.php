@@ -10,8 +10,8 @@
         <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-3">
             <h3 class="card-title">الفواتير المقبولة بانتظار الترحيل (<span id="reviewCount">{{ $items->total() }}</span>)</h3>
             <div class="d-flex align-items-center gap-3 flex-wrap">
-                <label class="fw-bold text-gray-700">الفرع / المحل:</label>
-                <select id="shopSelect" class="form-select form-select-sm w-auto" style="min-width:220px">
+                <label class="fw-bold text-gray-700">رحّل إلى الفرع / المحل:</label>
+                <select id="shopSelect" class="form-select form-select-sm w-auto fw-bold" style="min-width:240px">
                     <option value="">— اختر الفرع —</option>
                     @foreach ($shops as $shop)
                         <option value="{{ $shop->shop_id }}">{{ $shop->shop_name }}</option>
@@ -21,7 +21,12 @@
             </div>
         </div>
         <div class="card-body">
-            <div class="alert alert-light-primary py-2">اختر <b>الفرع/المحل</b> أولاً، ثم اضغط «ترحيل الفواتير» لترحيل الكل دفعة واحدة، أو «ترحيل» لفاتورة مفردة، أو «مراجعة/تعديل» للاطلاع على الصورة وتعديل الحقول قبل الترحيل.</div>
+            <div class="alert alert-light-primary py-3 d-flex align-items-center flex-wrap gap-2">
+                <i class="fas fa-store fs-3 text-primary"></i>
+                <span>الفرع المحدد للترحيل:</span>
+                <span id="shopChosen" class="badge badge-danger fs-7">لم يُحدَّد فرع بعد</span>
+                <span class="text-gray-600 ms-2">— اختر الفرع أولاً، ثم «ترحيل الفواتير» للكل، أو «ترحيل» لفاتورة مفردة. سيظهر اسم الفرع في رسالة التأكيد.</span>
+            </div>
             <div id="reviewList">
                 @include('dashboard.purchase.ai._review_list', ['items' => $items])
             </div>
@@ -67,7 +72,11 @@
 
     /** الفرع المختار من القائمة المنسدلة (فارغ = لم يُختر). */
     function selectedShop(){ var s=document.getElementById('shopSelect'); return s ? s.value : ''; }
+    function selectedShopName(){ var s=document.getElementById('shopSelect'); return s&&s.selectedIndex>0 ? s.options[s.selectedIndex].text.trim() : ''; }
     function requireShop(){ var v=selectedShop(); if(!v){ toast('يرجى اختيار الفرع/المحل أولاً.',false); var s=document.getElementById('shopSelect'); if(s) s.focus(); } return v; }
+    /** يحدّث مؤشّر الفرع المحدد المرئي. */
+    function refreshChosen(){ var el=document.getElementById('shopChosen'); if(!el) return; var name=selectedShopName();
+        if(name){ el.textContent=name; el.className='badge badge-success fs-7'; } else { el.textContent='لم يُحدَّد فرع بعد'; el.className='badge badge-danger fs-7'; } }
 
     ready(function(){
         console.log('[AI-REVIEW] سكربت مراجعة المشتريات محمّل. أزرار:', document.querySelectorAll('.js-approve').length);
@@ -82,16 +91,20 @@
             if(rj){ e.preventDefault(); if(!confirm('تأكيد رفض هذه الفاتورة؟'))return; var id3=rj.closest('.modal').id.replace('purModal','');
                 post(rj.getAttribute('data-url'),{reason:'رُفضت يدوياً'}).then(function(res){toast(res.message);hideModal(id3);reloadList();}).catch(function(){toast('تعذّر الرفض',false);}); return; }
             var all=e.target.closest('#approveAllBtn');
-            if(all){ e.preventDefault(); var shopAll=requireShop(); if(!shopAll) return;
+            if(all){ e.preventDefault(); var shopAll=requireShop(); if(!shopAll) return; var shopAllName=selectedShopName();
                 var ids=[].map.call(document.querySelectorAll('tr[data-item]'),function(tr){return tr.getAttribute('data-item');});
-                if(!ids.length){toast('لا توجد فواتير',false);return;} if(!confirm('ترحيل '+ids.length+' فاتورة إلى الفرع المحدد؟'))return; all.disabled=true;
-                post(all.getAttribute('data-url'),{ids:ids,shop_id:shopAll}).then(function(res){ toast('تم ترحيل الفواتير المقبولة إلى الفرع المحدد بنجاح ('+res.approved+' فاتورة)'+(res.errors&&res.errors.length?' — تخطّي '+res.errors.length:'')); all.disabled=false; reloadList(); }).catch(function(err){all.disabled=false;toast(err&&err.message?err.message:'تعذّر الترحيل الجماعي',false);}); return; }
+                if(!ids.length){toast('لا توجد فواتير',false);return;} if(!confirm('ترحيل '+ids.length+' فاتورة إلى فرع «'+shopAllName+'»؟'))return; all.disabled=true;
+                post(all.getAttribute('data-url'),{ids:ids,shop_id:shopAll}).then(function(res){ var nm=res.shop_name||shopAllName; toast('تم ترحيل '+res.approved+' فاتورة إلى فرع «'+nm+'» بنجاح'+(res.errors&&res.errors.length?' — تخطّي '+res.errors.length:'')); all.disabled=false; reloadList(); }).catch(function(err){all.disabled=false;toast(err&&err.message?err.message:'تعذّر الترحيل الجماعي',false);}); return; }
             /* اعتراض روابط الترقيم → تنقّل بـ AJAX بلا إعادة تحميل كاملة */
             var pg=e.target.closest('#reviewList .pagination a');
             if(pg){ e.preventDefault(); var href=pg.getAttribute('href'); if(!href) return;
                 var p=parseInt(new URLSearchParams(new URL(href, location.origin).search).get('page'))||1;
                 var nu=new URL(location.href); nu.searchParams.set('page', p); history.pushState({}, '', nu.toString()); reloadList(p); return; }
         });
+
+        // مؤشّر الفرع المحدد يتحدّث فور الاختيار
+        var sel=document.getElementById('shopSelect');
+        if(sel){ sel.addEventListener('change', refreshChosen); refreshChosen(); }
     });
 })();
 </script>

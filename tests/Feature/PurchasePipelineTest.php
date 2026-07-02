@@ -170,3 +170,41 @@ it('links the created purchase to the chosen branch (shop_id) on transfer', func
     $row = DB::table('purchase')->where('purchase_id', $purchaseId)->first();
     expect((int) $row->shop_id)->toBe(42);
 });
+
+it('bulk-transfers accepted invoices to the named branch and returns its name', function () {
+    // جدول المحلات + فرع (كما في نظام إدارة المحلات)
+    Schema::dropIfExists('shop');
+    Schema::create('shop', function ($t) {
+        $t->id('shop_id');
+        $t->string('shop_name')->nullable();
+    });
+    DB::table('shop')->insert(['shop_id' => 3, 'shop_name' => 'نور الصباح - المحمدية']);
+
+    fakePurchaseEngine(new FakeExtractionEngine(
+        data: ['invoice_no' => 'INV-ALL', 'total' => 300, 'supplier_name' => 'مورد'],
+        confidence: 0.95,
+    ));
+    fakePages(['/tmp/all.png']);
+
+    $batch = plPurchaseBatch();
+    (new ProcessPurchaseBatchJob($batch->id))->handle(app(PdfService::class));
+    $item = PurchaseImportItem::where('batch_id', $batch->id)->first();
+    $user = User::find($batch->create_user);
+
+    // الترحيل الجماعي إلى الفرع 3 → يجب أن يُعيد اسم الفرع ويربط الفاتورة به
+    $res = $this->actingAs($user)->postJson(route('dashboard.purchase.ai.approve_all'), [
+        'ids' => [$item->id], 'shop_id' => 3,
+    ]);
+
+    $res->assertOk()->assertJson(['ok' => true, 'approved' => 1, 'shop_name' => 'نور الصباح - المحمدية']);
+    expect((int) DB::table('purchase')->where('purchase_no', 'INV-ALL')->value('shop_id'))->toBe(3);
+});
+
+it('refuses bulk transfer when no branch is chosen', function () {
+    $batch = plPurchaseBatch();
+    $user = User::find($batch->create_user);
+
+    $this->actingAs($user)->postJson(route('dashboard.purchase.ai.approve_all'), ['ids' => []])
+        ->assertStatus(422)
+        ->assertJson(['ok' => false]);
+});
