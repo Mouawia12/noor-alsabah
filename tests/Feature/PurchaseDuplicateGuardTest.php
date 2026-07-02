@@ -24,6 +24,7 @@ beforeEach(function () {
         $t->decimal('tax_amount', 15, 2)->nullable();
         $t->decimal('purchase_price', 15, 2)->nullable();
         $t->unsignedBigInteger('supplier_id')->nullable();
+        $t->unsignedBigInteger('shop_id')->nullable();
         $t->string('purchasefile')->nullable();
         $t->text('note')->nullable();
         $t->unsignedBigInteger('import_item_id')->nullable();

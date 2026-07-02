@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\PurchaseImportBatch;
 use App\Models\PurchaseImportItem;
+use App\Models\Shop;
 use App\Services\Ai\PdfService;
 use App\Services\Ai\PurchaseImportService;
 use Illuminate\Http\Request;
@@ -108,7 +109,10 @@ class PurchaseAiController extends Controller
             ]);
         }
 
-        return view('dashboard.purchase.ai.review', compact('page_title', 'items'));
+        // قائمة المحلات لاختيار الفرع الذي تُرحَّل إليه الفواتير
+        $shops = Shop::orderBy('shop_name')->get(['shop_id', 'shop_name']);
+
+        return view('dashboard.purchase.ai.review', compact('page_title', 'items', 'shops'));
     }
 
     /** عرض صورة صفحة المستند الأصلي (من القرص الخاص) — للمراجعة. */
@@ -295,7 +299,7 @@ class PurchaseAiController extends Controller
         $overrides = $request->only([
             'invoice_no', 'invoice_date', 'tax_number', 'currency',
             'amount_before_tax', 'tax_amount', 'total', 'note',
-            'supplier_id', 'new_supplier_name',
+            'supplier_id', 'new_supplier_name', 'shop_id',
         ]);
         $overrides = array_filter($overrides, fn ($v) => $v !== null && $v !== '');
 
@@ -322,17 +326,24 @@ class PurchaseAiController extends Controller
             return back()->with('alert.error', $e->getMessage());
         }
 
-        $msg = "تم اعتماد الفاتورة وإنشاء سجل المشتريات رقم {$purchaseId}.";
+        $msg = "تم ترحيل الفاتورة إلى الفرع وإنشاء سجل المشتريات رقم {$purchaseId}.";
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json(['ok' => true, 'message' => $msg, 'item_id' => $item->id]);
         }
         return back()->with('alert.success', $msg);
     }
 
-    /** اعتماد جماعي للفواتير (يستخدم البيانات المستخرجة + إنشاء المورد المقترح). */
+    /** ترحيل جماعي للفواتير المقبولة إلى الفرع المحدد (المورد المطابق أو المقترح). */
     public function approveAll(Request $request)
     {
         $ids = (array) $request->input('ids', []);
+        $shopId = $request->input('shop_id');
+
+        // الفرع إلزامي للترحيل الجماعي (طلب العميل: اختيار المحل قبل الترحيل)
+        if ($shopId === null || $shopId === '') {
+            return response()->json(['ok' => false, 'message' => 'يرجى اختيار الفرع/المحل قبل ترحيل الفواتير.'], 422);
+        }
+
         $approved = 0;
         $errors = [];
 
@@ -349,12 +360,13 @@ class PurchaseAiController extends Controller
                 $overrides = ! empty($sup['matched'])
                     ? ['supplier_id' => $sup['supplier_id']]
                     : (! empty($data['supplier_name']) ? ['new_supplier_name' => $data['supplier_name']] : []);
+                $overrides['shop_id'] = $shopId; // ربط الفاتورة بالفرع المحدد
                 $this->importService->approveItem($item, $overrides, Auth::id());
                 $approved++;
             } catch (\App\Services\Ai\DuplicateInvoiceException $e) {
                 $errors[] = ['id' => (int) $id, 'msg' => $e->getMessage()];
             } catch (\Throwable $e) {
-                $errors[] = ['id' => (int) $id, 'msg' => 'تعذّر الاعتماد'];
+                $errors[] = ['id' => (int) $id, 'msg' => 'تعذّر الترحيل'];
             }
         }
 

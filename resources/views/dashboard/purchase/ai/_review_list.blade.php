@@ -15,7 +15,7 @@
                     <td>{{ $d['total'] ?? '—' }}</td>
                     <td>@if ($conf !== null)<span class="badge badge-light-{{ $low ? 'danger' : 'success' }}">{{ round($conf * 100) }}%</span>@endif @if ($item->is_duplicate)<span class="badge badge-light-danger">مكرر؟</span>@endif</td>
                     <td class="text-nowrap">
-                        <button type="button" class="btn btn-sm btn-success js-approve" data-url="{{ route('dashboard.purchase.ai.approve', $item->id) }}">اعتماد</button>
+                        <button type="button" class="btn btn-sm btn-success js-approve" data-url="{{ route('dashboard.purchase.ai.approve', $item->id) }}">ترحيل</button>
                         <button type="button" class="btn btn-sm btn-light-primary" data-bs-toggle="modal" data-bs-target="#purModal{{ $item->id }}">مراجعة/تعديل</button>
                     </td>
                 </tr>
@@ -79,7 +79,7 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">إغلاق</button>
                     <button type="button" class="btn btn-light-danger js-reject" data-url="{{ route('dashboard.purchase.ai.reject', $item->id) }}">رفض</button>
-                    <button type="button" class="btn btn-success js-modal-approve" data-item="{{ $item->id }}" data-url="{{ route('dashboard.purchase.ai.approve', $item->id) }}">اعتماد وإنشاء سجل مشتريات</button>
+                    <button type="button" class="btn btn-success js-modal-approve" data-item="{{ $item->id }}" data-url="{{ route('dashboard.purchase.ai.approve', $item->id) }}">ترحيل إلى الفرع وإنشاء سجل مشتريات</button>
                 </div>
             </div>
         </div>

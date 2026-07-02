@@ -31,6 +31,7 @@ beforeEach(function () {
         $t->decimal('tax_amount', 15, 2)->nullable();
         $t->decimal('purchase_price', 15, 2)->nullable();
         $t->unsignedBigInteger('supplier_id')->nullable();
+        $t->unsignedBigInteger('shop_id')->nullable();
         $t->string('purchasefile')->nullable();
         $t->text('note')->nullable();
         $t->unsignedBigInteger('import_item_id')->nullable();
@@ -150,4 +151,22 @@ it('approves a reviewed item and creates a real purchase record', function () {
     expect($row->purchase_no)->toBe('INV-APR');
     expect((float) $row->purchase_price)->toBe(2300.0);
     expect($item->fresh()->status)->toBe(PurchaseImportItem::STATUS_APPROVED);
+});
+
+it('links the created purchase to the chosen branch (shop_id) on transfer', function () {
+    fakePurchaseEngine(new FakeExtractionEngine(
+        data: ['invoice_no' => 'INV-BR', 'total' => 900, 'supplier_name' => 'مورد'],
+        confidence: 0.95,
+    ));
+    fakePages(['/tmp/br.png']);
+
+    $batch = plPurchaseBatch();
+    (new ProcessPurchaseBatchJob($batch->id))->handle(app(PdfService::class));
+
+    $item = PurchaseImportItem::where('batch_id', $batch->id)->first();
+    // ترحيل إلى الفرع رقم 42 (اختيار المستخدم من قائمة المحلات)
+    $purchaseId = app(PurchaseImportService::class)->approveItem($item, ['shop_id' => 42], $batch->create_user);
+
+    $row = DB::table('purchase')->where('purchase_id', $purchaseId)->first();
+    expect((int) $row->shop_id)->toBe(42);
 });

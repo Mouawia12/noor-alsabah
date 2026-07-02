@@ -7,12 +7,21 @@
     <div id="toaster" style="position:fixed;top:80px;left:20px;z-index:2000;min-width:300px"></div>
 
     <div class="card">
-        <div class="card-header d-flex align-items-center justify-content-between">
-            <h3 class="card-title">الفواتير بانتظار المراجعة (<span id="reviewCount">{{ $items->total() }}</span>)</h3>
-            <button type="button" id="approveAllBtn" class="btn btn-success" data-url="{{ route('dashboard.purchase.ai.approve_all') }}">اعتماد الكل ✓</button>
+        <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-3">
+            <h3 class="card-title">الفواتير المقبولة بانتظار الترحيل (<span id="reviewCount">{{ $items->total() }}</span>)</h3>
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <label class="fw-bold text-gray-700">الفرع / المحل:</label>
+                <select id="shopSelect" class="form-select form-select-sm w-auto" style="min-width:220px">
+                    <option value="">— اختر الفرع —</option>
+                    @foreach ($shops as $shop)
+                        <option value="{{ $shop->shop_id }}">{{ $shop->shop_name }}</option>
+                    @endforeach
+                </select>
+                <button type="button" id="approveAllBtn" class="btn btn-success" data-url="{{ route('dashboard.purchase.ai.approve_all') }}">ترحيل الفواتير ✓</button>
+            </div>
         </div>
         <div class="card-body">
-            <div class="alert alert-light-primary py-2">اضغط «اعتماد» للفاتورة مباشرةً، أو «مراجعة/تعديل» للاطلاع على الصورة وتعديل الحقول، أو «اعتماد الكل» دفعة واحدة.</div>
+            <div class="alert alert-light-primary py-2">اختر <b>الفرع/المحل</b> أولاً، ثم اضغط «ترحيل الفواتير» لترحيل الكل دفعة واحدة، أو «ترحيل» لفاتورة مفردة، أو «مراجعة/تعديل» للاطلاع على الصورة وتعديل الحقول قبل الترحيل.</div>
             <div id="reviewList">
                 @include('dashboard.purchase.ai._review_list', ['items' => $items])
             </div>
@@ -56,22 +65,27 @@
         headers:{'X-CSRF-TOKEN':CSRF,'X-Requested-With':'XMLHttpRequest','Accept':'application/json','Content-Type':'application/json'}, body:JSON.stringify(body||{})})
         .then(function(r){ return r.text().then(function(t){ var j; try{j=JSON.parse(t);}catch(e){j=null;} if(!r.ok||!j) throw (j||{status:r.status}); return j; }); }); }
 
+    /** الفرع المختار من القائمة المنسدلة (فارغ = لم يُختر). */
+    function selectedShop(){ var s=document.getElementById('shopSelect'); return s ? s.value : ''; }
+    function requireShop(){ var v=selectedShop(); if(!v){ toast('يرجى اختيار الفرع/المحل أولاً.',false); var s=document.getElementById('shopSelect'); if(s) s.focus(); } return v; }
+
     ready(function(){
         console.log('[AI-REVIEW] سكربت مراجعة المشتريات محمّل. أزرار:', document.querySelectorAll('.js-approve').length);
         document.addEventListener('click', function(e){
             var a=e.target.closest('.js-approve');
-            if(a){ e.preventDefault(); var id=a.closest('tr').getAttribute('data-item'); a.disabled=true;
-                post(a.getAttribute('data-url'),{}).then(function(res){toast(res.message);hideModal(id);reloadList();}).catch(function(err){a.disabled=false;toast(err&&err.message?err.message:'تعذّر الاعتماد',false);}); return; }
+            if(a){ e.preventDefault(); var shop=requireShop(); if(!shop) return; var id=a.closest('tr').getAttribute('data-item'); a.disabled=true;
+                post(a.getAttribute('data-url'),{shop_id:shop}).then(function(res){toast(res.message);hideModal(id);reloadList();}).catch(function(err){a.disabled=false;toast(err&&err.message?err.message:'تعذّر الترحيل',false);}); return; }
             var ma=e.target.closest('.js-modal-approve');
-            if(ma){ e.preventDefault(); var id2=ma.getAttribute('data-item'); var form=document.querySelector('.js-modal-form[data-item="'+id2+'"]'); var body={}; if(form){new FormData(form).forEach(function(v,k){body[k]=v;});} ma.disabled=true;
-                post(ma.getAttribute('data-url'),body).then(function(res){toast(res.message);hideModal(id2);reloadList();}).catch(function(err){ma.disabled=false;toast(err&&err.message?err.message:'تعذّر الاعتماد',false);}); return; }
+            if(ma){ e.preventDefault(); var shop2=requireShop(); if(!shop2) return; var id2=ma.getAttribute('data-item'); var form=document.querySelector('.js-modal-form[data-item="'+id2+'"]'); var body={shop_id:shop2}; if(form){new FormData(form).forEach(function(v,k){body[k]=v;});} ma.disabled=true;
+                post(ma.getAttribute('data-url'),body).then(function(res){toast(res.message);hideModal(id2);reloadList();}).catch(function(err){ma.disabled=false;toast(err&&err.message?err.message:'تعذّر الترحيل',false);}); return; }
             var rj=e.target.closest('.js-reject');
             if(rj){ e.preventDefault(); if(!confirm('تأكيد رفض هذه الفاتورة؟'))return; var id3=rj.closest('.modal').id.replace('purModal','');
                 post(rj.getAttribute('data-url'),{reason:'رُفضت يدوياً'}).then(function(res){toast(res.message);hideModal(id3);reloadList();}).catch(function(){toast('تعذّر الرفض',false);}); return; }
             var all=e.target.closest('#approveAllBtn');
-            if(all){ e.preventDefault(); var ids=[].map.call(document.querySelectorAll('tr[data-item]'),function(tr){return tr.getAttribute('data-item');});
-                if(!ids.length){toast('لا توجد فواتير',false);return;} if(!confirm('اعتماد '+ids.length+' فاتورة دفعة واحدة؟'))return; all.disabled=true;
-                post(all.getAttribute('data-url'),{ids:ids}).then(function(res){ toast('تم اعتماد '+res.approved+' فاتورة'+(res.errors&&res.errors.length?' (تخطّي '+res.errors.length+')':'')); all.disabled=false; reloadList(); }).catch(function(){all.disabled=false;toast('تعذّر الاعتماد الجماعي',false);}); return; }
+            if(all){ e.preventDefault(); var shopAll=requireShop(); if(!shopAll) return;
+                var ids=[].map.call(document.querySelectorAll('tr[data-item]'),function(tr){return tr.getAttribute('data-item');});
+                if(!ids.length){toast('لا توجد فواتير',false);return;} if(!confirm('ترحيل '+ids.length+' فاتورة إلى الفرع المحدد؟'))return; all.disabled=true;
+                post(all.getAttribute('data-url'),{ids:ids,shop_id:shopAll}).then(function(res){ toast('تم ترحيل الفواتير المقبولة إلى الفرع المحدد بنجاح ('+res.approved+' فاتورة)'+(res.errors&&res.errors.length?' — تخطّي '+res.errors.length:'')); all.disabled=false; reloadList(); }).catch(function(err){all.disabled=false;toast(err&&err.message?err.message:'تعذّر الترحيل الجماعي',false);}); return; }
             /* اعتراض روابط الترقيم → تنقّل بـ AJAX بلا إعادة تحميل كاملة */
             var pg=e.target.closest('#reviewList .pagination a');
             if(pg){ e.preventDefault(); var href=pg.getAttribute('href'); if(!href) return;

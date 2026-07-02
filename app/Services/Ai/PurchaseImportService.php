@@ -84,6 +84,9 @@ class PurchaseImportService
                 ->supplier_id;
         }
 
+        // الفرع/المحل الذي تُرحَّل إليه الفاتورة (اختيار المستخدم من قائمة المحلات)
+        $shopId = isset($overrides['shop_id']) && $overrides['shop_id'] !== '' ? (int) $overrides['shop_id'] : null;
+
         $purchaseId = DB::table('purchase')->insertGetId([
             'purchase_no'       => $data['invoice_no'] ?? null,
             'purchase_dt'       => $this->date($data['invoice_date'] ?? null),
@@ -93,6 +96,7 @@ class PurchaseImportService
             'tax_amount'        => $this->num($data['tax_amount'] ?? null),
             'purchase_price'    => $this->num($data['total'] ?? null),
             'supplier_id'       => $supplierId,
+            'shop_id'           => $shopId,
             'purchasefile'      => $item->batch->file_path ?? null,
             'note'              => $data['note'] ?? null,
             'import_item_id'    => $item->id,

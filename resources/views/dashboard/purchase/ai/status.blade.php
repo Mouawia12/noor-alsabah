@@ -19,6 +19,10 @@
             <div class="progress h-25px mb-5">
                 <div id="progressBar" class="progress-bar bg-primary fw-bold" role="progressbar" style="width: 0%">0%</div>
             </div>
+            <div id="processingMsg" class="alert alert-light-primary d-flex align-items-center {{ in_array($batch->status, ['completed','failed']) ? 'd-none' : '' }}">
+                <span class="spinner-border spinner-border-sm text-primary ms-3" role="status"></span>
+                <span>جاري معالجة الفواتير الآن، يرجى الانتظار... (تُعالَج في الخلفية؛ يمكنك متابعة التقدّم هنا)</span>
+            </div>
             <div class="d-flex gap-10 text-gray-700">
                 <span>الكلي: <b id="totalItems">{{ $batch->total_items }}</b></span>
                 <span>المعالَج: <b id="processedItems">{{ $batch->processed_items }}</b></span>
@@ -55,6 +59,7 @@
             eb.classList.remove('d-none'); eb.innerText = d.error_reason;
         }
         if (d.status === 'completed' || d.status === 'failed') {
+            var pm = document.getElementById('processingMsg'); if (pm) pm.classList.add('d-none');
             if (done > 0) reviewBtn.classList.remove('d-none');
             return true; // توقف
         }
