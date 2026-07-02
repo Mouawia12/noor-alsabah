@@ -19,28 +19,29 @@
         </div>
         <div class="card-body">
             @forelse ($notifications as $n)
-                @php $data = $n->data; @endphp
-                <div class="d-flex align-items-start border-bottom py-4 {{ $n->read_at ? 'opacity-50' : '' }}">
+                @php $it = \App\Support\NotificationPresenter::present($n); @endphp
+                <div class="d-flex align-items-start border-bottom py-4 {{ $it['is_read'] ? 'opacity-75' : '' }}">
+                    <span class="symbol symbol-40px me-4">
+                        <span class="symbol-label bg-light-{{ $it['color'] }}">
+                            <i class="fas {{ $it['icon'] }} text-{{ $it['color'] }} fs-3"></i>
+                        </span>
+                    </span>
                     <div class="flex-grow-1">
-                        <div class="fw-bold">
-                            تنبيهات الإيجارات
-                            @unless ($n->read_at)<span class="badge badge-light-danger ms-2">جديد</span>@endunless
+                        <div class="fw-bold text-gray-800">
+                            {{ $it['title'] }}
+                            @unless ($it['is_read'])<span class="badge badge-light-danger ms-2">جديد</span>@endunless
                         </div>
-                        <div class="text-gray-700 mt-1">
-                            مستحقة: {{ $data['summary']['upcoming'] ?? 0 }} —
-                            متأخرة: {{ $data['summary']['overdue'] ?? 0 }} —
-                            قاربت الانتهاء: {{ $data['summary']['expiring'] ?? 0 }}
-                        </div>
-                        @if (! empty($data['samples']))
+                        <div class="text-gray-700 mt-1">{{ $it['message'] }}</div>
+                        @if (! empty($it['samples']))
                             <ul class="mt-2 text-muted fs-7">
-                                @foreach (array_slice($data['samples'], 0, 5) as $s)<li>{{ $s }}</li>@endforeach
+                                @foreach ($it['samples'] as $s)<li>{{ $s }}</li>@endforeach
                             </ul>
                         @endif
-                        <div class="text-muted fs-8 mt-1">{{ $n->created_at->diffForHumans() }}</div>
+                        <div class="text-muted fs-8 mt-1">{{ $it['time'] }}</div>
                     </div>
                     <div class="d-flex gap-2">
-                        @if (! empty($data['url']))<a href="{{ $data['url'] }}" class="btn btn-sm btn-light">فتح</a>@endif
-                        @unless ($n->read_at)
+                        @if (! empty($it['url']))<a href="{{ $it['url'] }}" class="btn btn-sm btn-light">فتح</a>@endif
+                        @unless ($it['is_read'])
                             <form action="{{ route('dashboard.notifications.read', $n->id) }}" method="POST">
                                 @csrf<button class="btn btn-sm btn-light-success">مقروء</button>
                             </form>
@@ -48,7 +49,10 @@
                     </div>
                 </div>
             @empty
-                <div class="text-center text-muted py-5">لا توجد إشعارات.</div>
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-bell-slash fs-3x d-block mb-3 opacity-50"></i>
+                    لا توجد إشعارات.
+                </div>
             @endforelse
 
             <div class="d-flex justify-content-center mt-4">{{ $notifications->links() }}</div>

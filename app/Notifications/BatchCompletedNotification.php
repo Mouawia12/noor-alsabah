@@ -49,6 +49,8 @@ class BatchCompletedNotification extends Notification
 
     public function toArray(object $notifiable): array
     {
+        $label = $this->kind === 'rent' ? 'عقود الإيجار' : 'الفواتير';
+
         return [
             'type'      => 'batch_completed',
             'kind'      => $this->kind,
@@ -57,6 +59,9 @@ class BatchCompletedNotification extends Notification
             'processed' => $this->processed,
             'failed'    => $this->failed,
             'url'       => $this->reviewUrl,
+            'title'     => 'اكتملت معالجة ' . $label,
+            'message'   => sprintf('الملف: %s — الإجمالي %d، المقبول %d، المرفوض %d',
+                $this->filename, $this->total, $this->processed, $this->failed),
         ];
     }
 }

@@ -77,6 +77,10 @@
                                     </div>
                                 </div>
                                 <?php } ?>
+                                {{-- جرس إشعارات النظام (المشتريات/الإيجارات) --}}
+                                @auth
+                                    @include('partials.topbar._notifications-bell')
+                                @endauth
                                 @php $userAuth = explode(' ',trim(Auth::user()->name)); @endphp
                         <div class="d-flex align-items-center ms-1 ms-lg-3 fw-bold text-info  fs-7" style=""><span style="margin-top:-3px;font-size: 13.5px;">@auth(){{Auth::user()->name}} @else User Name @endauth</span>
                         </div>

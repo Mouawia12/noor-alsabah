@@ -358,6 +358,7 @@ Route::group([
 
         // ===== الإشعارات داخل النظام =====
         Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+        Route::get('/notifications/recent', [NotificationController::class, 'recent'])->name('notifications.recent');
         Route::post('/notifications/read/{id}', [NotificationController::class, 'markRead'])->name('notifications.read');
         Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read_all');
 

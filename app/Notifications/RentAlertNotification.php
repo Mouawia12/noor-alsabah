@@ -53,6 +53,11 @@ class RentAlertNotification extends Notification
             'summary' => $this->summary,
             'samples' => $this->samples,
             'url'     => $this->url,
+            'title'   => 'تنبيهات الإيجارات',
+            'message' => sprintf('مستحقة قريباً: %d — متأخرة: %d — عقود قاربت الانتهاء: %d',
+                (int) ($this->summary['upcoming'] ?? 0),
+                (int) ($this->summary['overdue'] ?? 0),
+                (int) ($this->summary['expiring'] ?? 0)),
         ];
     }
 }
