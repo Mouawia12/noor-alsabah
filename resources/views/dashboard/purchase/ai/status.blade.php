@@ -27,6 +27,7 @@
             <div id="errorBox" class="alert alert-danger mt-5 {{ $batch->error_reason ? '' : 'd-none' }}">{{ $batch->error_reason }}</div>
             <div id="doneBox" class="mt-5 d-none">
                 <a href="{{ route('dashboard.purchase.ai.review', ['batch_id' => $batch->id]) }}" class="btn btn-success">انتقل إلى المراجعة والاعتماد</a>
+                <a href="{{ route('dashboard.purchase.ai.batch.report', $batch->id) }}" class="btn btn-light-primary">تقرير حالة الفواتير</a>
             </div>
         </div>
     </div>

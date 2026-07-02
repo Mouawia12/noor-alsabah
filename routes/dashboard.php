@@ -324,6 +324,8 @@ Route::group([
         Route::get('/purchase/ai/failed', [PurchaseAiController::class, 'failed'])->name('purchase.ai.failed');
         Route::get('/purchase/ai/reports', [PurchaseAiController::class, 'reports'])->name('purchase.ai.reports');
         Route::get('/purchase/ai/reports/export', [PurchaseAiController::class, 'exportReports'])->name('purchase.ai.reports.export');
+        Route::get('/purchase/ai/batch/{batch}/report', [PurchaseAiController::class, 'batchReport'])->name('purchase.ai.batch.report');
+        Route::get('/purchase/ai/batch/{batch}/report/export', [PurchaseAiController::class, 'exportBatchReport'])->name('purchase.ai.batch.report.export');
         Route::post('/purchase/ai/approve-all', [PurchaseAiController::class, 'approveAll'])->name('purchase.ai.approve_all');
         Route::post('/purchase/ai/item/{item}/approve', [PurchaseAiController::class, 'approve'])->name('purchase.ai.approve');
         Route::post('/purchase/ai/item/{item}/reject', [PurchaseAiController::class, 'reject'])->name('purchase.ai.reject');

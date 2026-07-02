@@ -65,6 +65,14 @@ class PurchaseImportService
         $origExtracted = (array) ($item->extracted_json['data'] ?? $item->extracted_json ?? []);
         $data = array_merge($origExtracted, $overrides);
 
+        // منع تكرار الفاتورة عند الحفظ: رقم فاتورة موجود مسبقاً في المشتريات → رفض صريح
+        $invoiceNo = trim((string) ($data['invoice_no'] ?? ''));
+        if ($invoiceNo !== '' && DB::table('purchase')->where('purchase_no', $invoiceNo)->exists()) {
+            throw new DuplicateInvoiceException(
+                "فاتورة مكررة: رقم الفاتورة «{$invoiceNo}» مسجَّل مسبقاً — لا يمكن حفظها مرتين."
+            );
+        }
+
         // التعلّم المستمر: سجّل أي تصحيحات قام بها المستخدم
         app(CorrectionService::class)->record('purchase', $origExtracted, $data, $data['tax_number'] ?? null, $userId);
 

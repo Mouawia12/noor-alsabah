@@ -186,6 +186,79 @@ class PurchaseAiController extends Controller
         return view('dashboard.purchase.ai.reports', compact('page_title', 'stats', 'topSuppliers'));
     }
 
+    /** تقرير حالة كل فاتورة داخل دفعة (نجاح/فشل/سبب) — لطلب العميل عند الملفات الكبيرة. */
+    public function batchReport(PurchaseImportBatch $batch)
+    {
+        $this->guardAiBatch($batch);
+        $page_title = 'تقرير حالة الفواتير — ' . $batch->original_filename;
+        $rows = $this->batchReportRows($batch);
+
+        return view('dashboard.purchase.ai.batch_report', compact('page_title', 'batch', 'rows'));
+    }
+
+    /** تصدير تقرير حالة الفواتير (xlsx / pdf). */
+    public function exportBatchReport(Request $request, PurchaseImportBatch $batch)
+    {
+        $this->guardAiBatch($batch);
+        $format = $request->input('format', 'xlsx');
+        $rows = $this->batchReportRows($batch);
+
+        $detail = array_map(fn ($r) => [
+            $r['seq'], $r['pages'], $r['status_label'], $r['invoice_no'],
+            $r['supplier'], $r['tax_number'], $r['total'], $r['reason'],
+        ], $rows);
+
+        $header = ['#', 'الصفحات', 'الحالة', 'رقم الفاتورة', 'المورد', 'الرقم الضريبي', 'الإجمالي', 'السبب/ملاحظات'];
+        $summary = [
+            ['الملف', $batch->original_filename],
+            ['إجمالي الفواتير', count($rows)],
+            ['نجحت', count(array_filter($rows, fn ($r) => $r['ok']))],
+            ['فشلت/مرفوضة', count(array_filter($rows, fn ($r) => ! $r['ok']))],
+        ];
+
+        return $this->exportData('تقرير_حالة_الفواتير', $summary, $detail, $header, $format);
+    }
+
+    /** يبني صفوف تقرير الحالة لكل عنصر في الدفعة. */
+    protected function batchReportRows(PurchaseImportBatch $batch): array
+    {
+        $labels = [
+            'pending'      => 'قيد الانتظار',
+            'processing'   => 'قيد المعالجة',
+            'needs_review' => 'مقبولة (بانتظار المراجعة)',
+            'approved'     => 'معتمدة/مرحّلة',
+            'rejected'     => 'مرفوضة يدوياً',
+            'failed'       => 'فشلت المعالجة',
+            'merged'       => 'صفحة تكملة (مدموجة)',
+        ];
+        $okStatuses = ['needs_review', 'approved'];
+
+        $items = PurchaseImportItem::where('batch_id', $batch->id)->orderBy('page_from')->get();
+        $rows = [];
+        $seq = 0;
+        foreach ($items as $item) {
+            $d = (array) ($item->extracted_json['data'] ?? []);
+            $pages = $item->page_from == $item->page_to
+                ? (string) $item->page_from
+                : "{$item->page_from}–{$item->page_to}";
+            $rows[] = [
+                'seq'          => ++$seq,
+                'pages'        => $pages,
+                'status'       => $item->status,
+                'status_label' => $labels[$item->status] ?? $item->status,
+                'ok'           => in_array($item->status, $okStatuses, true),
+                'invoice_no'   => $d['invoice_no'] ?? '—',
+                'supplier'     => $d['supplier_name'] ?? '—',
+                'tax_number'   => $d['tax_number'] ?? '—',
+                'total'        => $d['total'] ?? '—',
+                'confidence'   => $item->confidence !== null ? round($item->confidence * 100) . '%' : '—',
+                'reason'       => $item->error_reason ?? '',
+            ];
+        }
+
+        return $rows;
+    }
+
     /** تصدير تقرير المشتريات (xlsx / pdf). */
     public function exportReports(Request $request)
     {
@@ -238,7 +311,16 @@ class PurchaseAiController extends Controller
         }
 
         $this->guardAiItem($item);
-        $purchaseId = $this->importService->approveItem($item, $overrides, Auth::id());
+
+        try {
+            $purchaseId = $this->importService->approveItem($item, $overrides, Auth::id());
+        } catch (\App\Services\Ai\DuplicateInvoiceException $e) {
+            // فاتورة مكررة: رسالة واضحة للمستخدم بدل خطأ عام
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['ok' => false, 'message' => $e->getMessage()], 422);
+            }
+            return back()->with('alert.error', $e->getMessage());
+        }
 
         $msg = "تم اعتماد الفاتورة وإنشاء سجل المشتريات رقم {$purchaseId}.";
         if ($request->expectsJson() || $request->ajax()) {
@@ -269,6 +351,8 @@ class PurchaseAiController extends Controller
                     : (! empty($data['supplier_name']) ? ['new_supplier_name' => $data['supplier_name']] : []);
                 $this->importService->approveItem($item, $overrides, Auth::id());
                 $approved++;
+            } catch (\App\Services\Ai\DuplicateInvoiceException $e) {
+                $errors[] = ['id' => (int) $id, 'msg' => $e->getMessage()];
             } catch (\Throwable $e) {
                 $errors[] = ['id' => (int) $id, 'msg' => 'تعذّر الاعتماد'];
             }
