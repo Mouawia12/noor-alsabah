@@ -116,6 +116,8 @@ class PurchaseImportService
             'overrides'   => $overrides,
         ], $userId);
 
+        \App\Support\AiDashboardStats::forget(); // تحديث فوري لمؤشّرات اللوحة
+
         return $purchaseId;
     }
 
@@ -129,6 +131,7 @@ class PurchaseImportService
         ]);
 
         AiAuditLog::record('purchase_item', $item->id, 'rejected', ['reason' => $reason], $userId);
+        \App\Support\AiDashboardStats::forget();
     }
 
     protected function num($v): ?float

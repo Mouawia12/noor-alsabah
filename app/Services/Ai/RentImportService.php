@@ -66,7 +66,7 @@ class RentImportService
         // التعلّم المستمر: سجّل تصحيحات المستخدم
         app(CorrectionService::class)->record('rent', $origExtracted, $data, $data['contract_no'] ?? null, $userId);
 
-        return DB::transaction(function () use ($item, $data, $shopId, $overrides, $userId) {
+        $result = DB::transaction(function () use ($item, $data, $shopId, $overrides, $userId) {
             // 1) إنشاء العقد (تعبئة الأعمدة القديمة ليعرضها النظام الحالي + الجديدة)
             $shopRentId = DB::table('shop_rent')->insertGetId([
                 'shop_id'           => $shopId,
@@ -122,6 +122,10 @@ class RentImportService
 
             return $shopRentId;
         });
+
+        \App\Support\AiDashboardStats::forget(); // تحديث فوري لمؤشّرات اللوحة
+
+        return $result;
     }
 
     public function rejectItem(RentContractImportItem $item, ?string $reason = null, ?int $userId = null): void
@@ -133,6 +137,7 @@ class RentImportService
             'reviewed_at'  => Carbon::now(),
         ]);
         AiAuditLog::record('rent_item', $item->id, 'rejected', ['reason' => $reason], $userId);
+        \App\Support\AiDashboardStats::forget();
     }
 
     protected function num($v): ?float

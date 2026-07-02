@@ -26,6 +26,13 @@
             class="menu menu-column menu-title-gray-800 menu-state-title-primary menu-state-icon-primary menu-state-bullet-primary menu-arrow-gray-500"
             id="#kt_aside_menu" data-kt-menu="true">
             <div class="menu-item">
+                <a class="menu-link @if (Route::currentRouteName() == 'dashboard.ai.overview') active @endif"
+                   href="{{ route('dashboard.ai.overview') }}">
+                    <span class="menu-icon"><i class="fas fa-robot text-dark"></i></span>
+                    <span class="menu-title text-dark fw-bold">لوحة الذكاء الاصطناعي</span>
+                </a>
+            </div>
+            <div class="menu-item">
                 <a class="menu-link @if (Route::currentRouteName() == 'dashboard.notifications.index') active @endif"
                    href="{{ route('dashboard.notifications.index') }}">
                     <span class="menu-icon"><i class="fas fa-bell text-dark"></i></span>

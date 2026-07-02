@@ -314,6 +314,9 @@ Route::group([
         Route::get('/purchase/views', [purchaseController::class, 'views'])->name('purchase.views');
         Route::post('/purchase/updstore', [purchaseController::class, 'updstore'])->name('purchase.updstore');
 
+        // ===== لوحة معلومات الذكاء الاصطناعي (نظرة شاملة) =====
+        Route::get('/ai/overview', [\App\Http\Controllers\Dashboard\AiDashboardController::class, 'overview'])->name('ai.overview');
+
         // ===== استيراد الفواتير بالذكاء الاصطناعي (يجب أن تسبق resource لتفادي التقاط /purchase/{purchase}) =====
         Route::get('/purchase/ai', [PurchaseAiController::class, 'index'])->name('purchase.ai.index');
         Route::post('/purchase/ai/upload', [PurchaseAiController::class, 'store'])->name('purchase.ai.store');
