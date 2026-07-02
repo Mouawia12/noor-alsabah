@@ -44,6 +44,11 @@ class ProcessRentContractBatchJob implements ShouldQueue
                 throw new \RuntimeException('لم تُنتج أي صور من الملف.');
             }
 
+            // نضبط العدد الكلي قبل جدولة العناصر: يمنع سباقاً قد يجعل عامل الطابور
+            // يعالج عنصراً ويحدّث العدّادات بينما total_items = 0 (فلا تُغلق الدفعة).
+            $batch->update(['total_items' => count($images)]);
+            AiAuditLog::record('rent_batch', $batch->id, 'pages', ['pages' => count($images)], $batch->create_user);
+
             // عنصر لكل صفحة (الدمج الذكي يتم بعد الاستخراج) — قوي وقابل للتوسّع
             foreach ($images as $i => $path) {
                 RentContractImportItem::create([
@@ -55,9 +60,6 @@ class ProcessRentContractBatchJob implements ShouldQueue
                     'status'           => RentContractImportItem::STATUS_PENDING,
                 ])->each(fn ($item) => ProcessRentContractItemJob::dispatch($item->id));
             }
-
-            $batch->update(['total_items' => count($images)]);
-            AiAuditLog::record('rent_batch', $batch->id, 'pages', ['pages' => count($images)], $batch->create_user);
         } catch (\Throwable $e) {
             $batch->update(['status' => RentContractImportBatch::STATUS_FAILED, 'error_reason' => $e->getMessage()]);
             AiAuditLog::record('rent_batch', $batch->id, 'failed', ['error' => $e->getMessage()], $batch->create_user);

@@ -45,6 +45,11 @@ class ProcessPurchaseBatchJob implements ShouldQueue
                 throw new \RuntimeException('لم تُنتج أي صور من الملف.');
             }
 
+            // نضبط العدد الكلي قبل جدولة العناصر: يمنع سباقاً قد يجعل عامل الطابور
+            // يعالج عنصراً ويحدّث العدّادات بينما total_items = 0 (فلا تُغلق الدفعة).
+            $batch->update(['total_items' => count($images)]);
+            AiAuditLog::record('purchase_batch', $batch->id, 'pages', ['pages' => count($images)], $batch->create_user);
+
             // عنصر لكل صفحة (الدمج الذكي يتم بعد الاستخراج) — قوي وقابل للتوسّع
             foreach ($images as $i => $path) {
                 PurchaseImportItem::create([
@@ -56,9 +61,6 @@ class ProcessPurchaseBatchJob implements ShouldQueue
                     'status'           => PurchaseImportItem::STATUS_PENDING,
                 ])->each(fn ($item) => ProcessPurchaseItemJob::dispatch($item->id));
             }
-
-            $batch->update(['total_items' => count($images)]);
-            AiAuditLog::record('purchase_batch', $batch->id, 'pages', ['pages' => count($images)], $batch->create_user);
         } catch (\Throwable $e) {
             $batch->update([
                 'status'       => PurchaseImportBatch::STATUS_FAILED,
