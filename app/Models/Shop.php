@@ -71,7 +71,7 @@ class Shop extends Model
         $end = ($page - 1) * $resultCount;
         $start = $end + $resultCount;
         $bind = [];
-        $sql = "SELECT shop.shop_name as name, shop.shop_id as id_no,shop.shop_id as id,shop.shop_respon,shop_municip.municip_no as municip_no
+        $sql = "SELECT shop.shop_name as name, shop.shop_code as shop_code, shop.shop_id as id_no,shop.shop_id as id,shop.shop_respon,shop_municip.municip_no as municip_no
         from  shop
 
         left join shop_municip  on shop.shop_id=shop_municip.shop_id
@@ -81,7 +81,9 @@ class Shop extends Model
         }
         $sql = $sql . " where  1=1 ";
         if ($string != "") {
-            $sql = $sql . " and ( shop.shop_name LIKE ? or  shop_municip.municip_no LIKE ?)    ";
+            // البحث بالاسم أو رخصة البلدية أو كود الفرع
+            $sql = $sql . " and ( shop.shop_name LIKE ? or  shop_municip.municip_no LIKE ? or shop.shop_code LIKE ?)    ";
+            $bind[] = "%$string%";
             $bind[] = "%$string%";
             $bind[] = "%$string%";
         }
@@ -97,9 +99,11 @@ class Shop extends Model
             } else {
                 $muni_no = '';
             }
+            // كود الفرع يظهر بجانب الاسم لتسهيل الاختيار عند الترحيل
+            $code_prefix = ! empty($user['shop_code']) ? '(' . $user['shop_code'] . ') ' : '';
             $data[] = array(
                 "id" => $user['id'],
-                "ItemName" => $user['name'], "item_code" => $muni_no, "total_count" => $count_rs_chk
+                "ItemName" => $code_prefix . $user['name'], "item_code" => $muni_no, "total_count" => $count_rs_chk
             );
         }
         return $data;

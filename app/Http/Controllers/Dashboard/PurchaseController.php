@@ -195,6 +195,9 @@ class PurchaseController extends Controller
             $validator = Validator::make($request->all(), [
                 'purchase_no' => ['required', 'string', 'unique:purchase'],
                 'purchase_dt' => ['required', 'date'],
+            ], [
+                // رسالة صريحة عند تكرار رقم الفاتورة (منع الترحيل/الإدخال المكرر)
+                'purchase_no.unique' => 'فاتورة مكررة: رقم الفاتورة مسجَّل مسبقاً ولا يمكن إدخاله أكثر من مرة.',
             ]);
 
             if (($request->manager_id =="" and $request->shop_id=="") || (!isset($request->manager_id ) and !isset($request->shop_id ))) {
@@ -312,6 +315,8 @@ class PurchaseController extends Controller
                 'purchase_no' => ['required', Rule::unique('purchase', 'purchase_no')->ignore($id, 'purchase_id')],
                 'purchase_dt' => ['required', 'date'],
 
+            ], [
+                'purchase_no.unique' => 'فاتورة مكررة: رقم الفاتورة مسجَّل مسبقاً ولا يمكن إدخاله أكثر من مرة.',
             ]);
             $validator->setAttributeNames($attributeNames);
             if ($validator->fails()) {

@@ -91,7 +91,7 @@ class RentAiController extends Controller
         }
 
         $items = $query->paginate(20)->withQueryString();
-        $shops = DB::table('shop')->orderBy('shop_name')->get(['shop_id', 'shop_name']);
+        $shops = DB::table('shop')->orderBy('shop_name')->get(['shop_id', 'shop_name', 'shop_code']);
 
         // طلب AJAX (إعادة جلب بعد اعتماد/رفض/تنقّل) → نُعيد جزء الجدول فقط.
         if ($request->ajax()) {

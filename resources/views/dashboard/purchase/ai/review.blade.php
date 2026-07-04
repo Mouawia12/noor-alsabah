@@ -14,7 +14,7 @@
                 <select id="shopSelect" class="form-select form-select-sm w-auto fw-bold" style="min-width:240px">
                     <option value="">— اختر الفرع —</option>
                     @foreach ($shops as $shop)
-                        <option value="{{ $shop->shop_id }}">{{ $shop->shop_name }}</option>
+                        <option value="{{ $shop->shop_id }}">{{ ($shop->shop_code ? '('.$shop->shop_code.') ' : '').$shop->shop_name }}</option>
                     @endforeach
                 </select>
                 <button type="button" id="approveAllBtn" class="btn btn-success" data-url="{{ route('dashboard.purchase.ai.approve_all') }}">ترحيل الفواتير ✓</button>

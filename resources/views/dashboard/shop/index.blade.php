@@ -58,6 +58,16 @@
                                             value="" autocomplete="off">
                                     </div>
                                 </div>
+                                <div class=" col-12 col-lg-2 col-md-12 col-sm-12 mb-5"><label for="shop_code"
+                                        class="form-label fs-6 fw-bold text-dark mb-3">كود الفرع</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend"><span class="input-group-text"><i
+                                                    class="fas fa-hashtag fa-fw text-dark"></i></span></div><input
+                                            type="text" name="shop_code" id="shop_code"
+                                            class="form-control fw-bold text-dark" placeholder="كود الفرع"
+                                            value="" autocomplete="off">
+                                    </div>
+                                </div>
                                 <div class="col-12 col-lg-2 col-md-12 col-sm-12 mb-5">
                                     <label for="calculate_month_val" class="form-label required fs-6 fw-bold text-dark mb-3">المبلغ
                                         المطلوب</label>

@@ -1640,6 +1640,7 @@ class ShopController extends Controller
                          }*/
                 $result2 = DB::table('shop')->insertGetId([
                     'shop_name' => $request->shop_name,
+                    'shop_code' => $request->shop_code,
                     'calculate_month_val' => $request->calculate_month_val,
                     'manager_id' => $request->manager_id,
                     'shop_respon' => $request->shop_respon,
@@ -1927,6 +1928,7 @@ class ShopController extends Controller
                 ->where('shop_id', $id)
                 ->update([
                     'shop_name' => $request->shop_name,
+                    'shop_code' => $request->shop_code,
                     'calculate_month_val' => $request->calculate_month_val,
                     'manager_id' => $request->manager_id,
                     'shop_respon' => $request->shop_respon,

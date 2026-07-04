@@ -18,7 +18,7 @@
                     <td>
                         <select class="form-select form-select-sm row-shop">
                             <option value="">— اختر —</option>
-                            @foreach ($shops as $s)<option value="{{ $s->shop_id }}">{{ $s->shop_name }}</option>@endforeach
+                            @foreach ($shops as $s)<option value="{{ $s->shop_id }}">{{ ($s->shop_code ?? null ? '('.$s->shop_code.') ' : '').$s->shop_name }}</option>@endforeach
                         </select>
                     </td>
                     <td class="text-nowrap">

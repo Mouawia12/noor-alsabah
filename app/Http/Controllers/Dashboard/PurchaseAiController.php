@@ -109,8 +109,8 @@ class PurchaseAiController extends Controller
             ]);
         }
 
-        // قائمة المحلات لاختيار الفرع الذي تُرحَّل إليه الفواتير
-        $shops = Shop::orderBy('shop_name')->get(['shop_id', 'shop_name']);
+        // قائمة المحلات لاختيار الفرع الذي تُرحَّل إليه الفواتير (مع كود الفرع)
+        $shops = Shop::orderBy('shop_name')->get(['shop_id', 'shop_name', 'shop_code']);
 
         return view('dashboard.purchase.ai.review', compact('page_title', 'items', 'shops'));
     }

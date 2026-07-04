@@ -56,11 +56,11 @@ class ReportController extends Controller
         $objPHPExcel = new Spreadsheet();
         $getActiveSheet = $objPHPExcel->getActiveSheet();
         $from_h = "A1";
-        $to_h = "I1";
+        $to_h = "L1";
         $from = "A2";
-        $to = "I2";
+        $to = "L2";
         $from_c = "A";
-        $to_c = "I";
+        $to_c = "L";
         $objPHPExcel->getActiveSheet()->getPageSetup()
             ->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
         $objPHPExcel->getActiveSheet()->getPageSetup()
@@ -73,10 +73,10 @@ class ReportController extends Controller
         $objPHPExcel->getProperties()->setTitle("NourSabah");
         $objPHPExcel->getProperties()->setSubject("NourSabah");
         $objPHPExcel->getProperties()->setDescription("NourSabah");
-        $objPHPExcel->setActiveSheetIndex(0)->mergeCells('A1:H1');
+        $objPHPExcel->setActiveSheetIndex(0)->mergeCells('A1:L1');
         $objPHPExcel->getActiveSheet()->getCell('A1')->setValue("تقرير مصاريف شراء");
         $objPHPExcel->getActiveSheet()->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $objPHPExcel->getActiveSheet()->getStyle('A1:I1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('33F0FF'); //FF3399 33F0FF F28A8C
+        $objPHPExcel->getActiveSheet()->getStyle('A1:L1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('33F0FF'); //FF3399 33F0FF F28A8C
         $objPHPExcel->getActiveSheet()->getStyle("$from_h:$to_h")->getFont()->setBold(true);
         $objPHPExcel->getActiveSheet()->getStyle("$from_h:$to_h")->getFont()->setSize(14);
         $objPHPExcel->getActiveSheet()->getStyle("$from_h:$to_h")->getFont()->setItalic(false);
@@ -84,15 +84,19 @@ class ReportController extends Controller
         $objPHPExcel->getTheme()->setThemeFontName('custom')->setMinorFontValues('Calibri', 'Arial', 'Arial', []);
         $objPHPExcel->getDefaultStyle()->getFont()->setScheme('minor');
         $objPHPExcel->setActiveSheetIndex(0);
+        // الأعمدة مطابقة لجدول الشاشة (tbl_purchase) بنفس الترتيب
         $objPHPExcel->getActiveSheet()->SetCellValue('A2', '#');
         $objPHPExcel->getActiveSheet()->SetCellValue('B2', 'رقم الفاتورة');
         $objPHPExcel->getActiveSheet()->SetCellValue('C2', 'تاريخ الفاتورة');
-        $objPHPExcel->getActiveSheet()->SetCellValue('D2', ' قيمة الفاتورة شامل الضريبة');
-        $objPHPExcel->getActiveSheet()->SetCellValue('E2', 'اسم المورد');
-        $objPHPExcel->getActiveSheet()->SetCellValue('F2', 'المجموعة');
-        $objPHPExcel->getActiveSheet()->SetCellValue('G2', 'تاريح الادخال');
-        $objPHPExcel->getActiveSheet()->SetCellValue('H2', 'الملاحظة');
-        $objPHPExcel->getActiveSheet()->SetCellValue('I2', 'اسم المحل');
+        $objPHPExcel->getActiveSheet()->SetCellValue('D2', 'قيمة الفاتورة شامل الضريبة');
+        $objPHPExcel->getActiveSheet()->SetCellValue('E2', 'الضريبة');
+        $objPHPExcel->getActiveSheet()->SetCellValue('F2', 'المبلغ دون الضريبة');
+        $objPHPExcel->getActiveSheet()->SetCellValue('G2', 'الرقم الضريبي');
+        $objPHPExcel->getActiveSheet()->SetCellValue('H2', 'المحل / المجموعة');
+        $objPHPExcel->getActiveSheet()->SetCellValue('I2', 'اسم المورد');
+        $objPHPExcel->getActiveSheet()->SetCellValue('J2', 'المدخِل');
+        $objPHPExcel->getActiveSheet()->SetCellValue('K2', 'تاريخ الإدخال');
+        $objPHPExcel->getActiveSheet()->SetCellValue('L2', 'الملاحظة');
 
         $objPHPExcel->getActiveSheet()->getStyle("$from:$to")->getFont()->setBold(true);
         $objPHPExcel->getActiveSheet()->getStyle("$from:$to")->getFont()->setSize(12);
@@ -124,23 +128,32 @@ class ReportController extends Controller
 
         foreach ($list as $x) {
             $purchase_no = $x->purchase_no;
-            $purchase_dt= Carbon::parse($x->purchase_dt)->format('d-m-Y');
-            $purchase_price = $x->purchase_price;
+            $purchase_dt = Carbon::parse($x->purchase_dt)->format('d-m-Y');
+            $purchase_price = $x->purchase_price;                                  // شامل الضريبة
+            $tax_val = number_format($purchase_price - $purchase_price / 1.15, 2);  // الضريبة
+            $before_tax = number_format($purchase_price / 1.15, 2);                 // دون الضريبة
+            $tax_number = $x->tax_number ?? '';
             $purchase_respon = $x->purchase_respon;
             $shop = Shop::find($x->shop_id);
-            $manager_name= $x->manager_name ?? $shop->manager->manager_name;
-            $shop_name= isset($shop) ? ( ($shop->shop_name ." - ". $shop->municip->municip_no) ?? "") : "";
+            // عمود المحل/المجموعة: المحل إن وُجد وإلا اسم المجموعة/القائد (مطابق للشاشة)
+            $shop_or_group = isset($shop)
+                ? trim($shop->shop_name . ' - ' . ($shop->municip->municip_no ?? ''))
+                : ($x->manager_name ?? '');
+            $entered_by = optional(User::find($x->create_user))->name;             // المدخِل
             $created_at = Carbon::parse($x->created_at)->format('d-m-Y');
             $note = $x->note;
             $objPHPExcel->getActiveSheet()->SetCellValue('A' . $rowCount, $i);
             $objPHPExcel->getActiveSheet()->SetCellValue('B' . $rowCount, $purchase_no);
             $objPHPExcel->getActiveSheet()->SetCellValue('C' . $rowCount, $purchase_dt);
             $objPHPExcel->getActiveSheet()->SetCellValue('D' . $rowCount, $purchase_price);
-            $objPHPExcel->getActiveSheet()->SetCellValue('E' . $rowCount, $purchase_respon);
-            $objPHPExcel->getActiveSheet()->SetCellValue('F' . $rowCount, $manager_name);
-            $objPHPExcel->getActiveSheet()->SetCellValue('G' . $rowCount, $created_at);
-            $objPHPExcel->getActiveSheet()->SetCellValue('H' . $rowCount, $note);
-            $objPHPExcel->getActiveSheet()->SetCellValue('I' . $rowCount, $shop_name);
+            $objPHPExcel->getActiveSheet()->SetCellValue('E' . $rowCount, $tax_val);
+            $objPHPExcel->getActiveSheet()->SetCellValue('F' . $rowCount, $before_tax);
+            $objPHPExcel->getActiveSheet()->SetCellValueExplicit('G' . $rowCount, (string) $tax_number, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $objPHPExcel->getActiveSheet()->SetCellValue('H' . $rowCount, $shop_or_group);
+            $objPHPExcel->getActiveSheet()->SetCellValue('I' . $rowCount, $purchase_respon);
+            $objPHPExcel->getActiveSheet()->SetCellValue('J' . $rowCount, $entered_by);
+            $objPHPExcel->getActiveSheet()->SetCellValue('K' . $rowCount, $created_at);
+            $objPHPExcel->getActiveSheet()->SetCellValue('L' . $rowCount, $note);
             $i++;
             $rowCount++;
         }
@@ -189,23 +202,30 @@ class ReportController extends Controller
             //         $pdf->SetY(30);
             //         $pdf->writeHTML("<hr>", true, false, false, false, '');
 
-            $pdf->Image('@' . file_get_contents(K_PATH_IMAGES . 'Logopdf.jpg'), 40, 5, 30, '', 'jpeg', '', 'L', false, 10, '', false, false, 0, false, false, false);
+            // ترويسة رسمية: شعار «نور الصباح لتقديم الوجبات» أعلى يمين الصفحة (A4 أفقي)
+            $lg = public_path('assets/media/reports/noor_logo.png');
+            if (is_file($lg)) {
+                $pdf->Image($lg, 240, 4, 48, 0, 'PNG', '', 'T', false, 300, '', false, false, 0, false, false, false);
+            }
+            $pdf->SetAlpha(1);
             $pdf->SetY(30);
-
-
-
-                    $pdf->SetAlpha(0.25);
-
-                    $pdf->SetY(16);
-                    $pdf->Image('@' . file_get_contents(K_PATH_IMAGES . 'logo.jpg'), 170, 90, 0, '', 'jpeg', '', 'C', false, 10, '', false, false, 0, false, false, false);
-                  //  $pdf->SetMargins(0, 0, 20, 0);
 
                 });
 
+        // تذييل رسمي: بيانات المنشأة المعتمدة على كل صفحة
+        PDF::setFooterCallback(function ($pdf) {
+            $pdf->SetY(-16);
+            $pdf->SetFont('dejavusans', '', 8);
+            $pdf->SetTextColor(60, 60, 60);
+            $pdf->Cell(0, 5, 'المملكة العربية السعودية - المنطقة الشرقية    |    admin@noor-alsabah.com    |    س.ت : 2055128621', 0, 1, 'C');
+            $pdf->Cell(0, 4, 'نور الصباح لتقديم الوجبات — NOOR ALSABAH', 0, 0, 'C');
+        });
 
         $data["list"] = $list;
         $data["ADDED_INFO_NO"] = '413346578';
         $html = view('dashboard.purchase.pdf', $data)->render();
+        // تفعيل التذييل بعد تصيير القالب (القالب يعطّله) قبل الإخراج
+        PDF::setPrintFooter(true);
         PDF::Output('purchase.pdf', 'I');
     }
 

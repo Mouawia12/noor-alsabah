@@ -139,7 +139,7 @@
                                             name="shop_id" dir="rtl" data-placeholder=" المحل">
                                             <option value="">اختر ..</option>
                                             @foreach ($shops as $x)
-                                                <option value="{{ $x->shop_id }} ">{{ $x->shop_name.($x->municip->municip_no??"")}}</option>
+                                                <option value="{{ $x->shop_id }} ">{{ ($x->shop_code ? '('.$x->shop_code.') ' : '').$x->shop_name.($x->municip->municip_no??"")}}</option>
                                             @endforeach
                                         </select>
                                     </div>
