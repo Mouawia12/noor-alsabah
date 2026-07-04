@@ -93,7 +93,7 @@
                             <span class="text-truncate" style="max-width:55%"><i class="fas fa-file-contract text-gray-500 me-2"></i>{{ $b->original_filename }}</span>
                             <span class="d-flex align-items-center gap-3">
                                 <span class="text-gray-600 fs-8">{{ $b->processed_items + $b->failed_items }}/{{ $b->total_items }}</span>
-                                <span class="badge badge-light-{{ $b->status === 'completed' ? 'success' : ($b->status === 'failed' ? 'danger' : 'primary') }}">{{ $b->status }}</span>
+                                <span class="badge badge-light-{{ $b->status === 'completed' ? 'success' : ($b->status === 'failed' ? 'danger' : 'primary') }}">{{ __('ai.status.'.$b->status) }}</span>
                             </span>
                         </a>
                     @empty

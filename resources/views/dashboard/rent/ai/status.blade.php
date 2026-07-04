@@ -25,7 +25,7 @@
     <div class="card mb-5">
         <div class="card-header">
             <h3 class="card-title">معالجة الملف: {{ $batch->original_filename }}</h3>
-            <div class="card-toolbar"><span id="batchStatus" class="badge badge-light-primary fs-6">{{ $batch->status }}</span></div>
+            <div class="card-toolbar"><span id="batchStatus" class="badge badge-light-primary fs-6">{{ __('ai.status.'.$batch->status) }}</span></div>
         </div>
         <div class="card-body">
             <div class="progress h-25px mb-5">
@@ -78,9 +78,10 @@
 <script>
 (function () {
     const url = "{{ route('dashboard.rent.ai.batch.json', $batch->id) }}";
+    const STATUS_AR = {!! json_encode(__('ai.status'), JSON_UNESCAPED_UNICODE) !!};
     const reviewBtn = document.getElementById('doneBox');
     function render(d) {
-        document.getElementById('batchStatus').innerText = d.status;
+        document.getElementById('batchStatus').innerText = STATUS_AR[d.status] || d.status;
         document.getElementById('totalItems').innerText = d.total_items;
         document.getElementById('processedItems').innerText = d.processed_items;
         document.getElementById('failedItems').innerText = d.failed_items;
