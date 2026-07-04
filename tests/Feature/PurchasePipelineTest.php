@@ -200,6 +200,28 @@ it('bulk-transfers accepted invoices to the named branch and returns its name', 
     expect((int) DB::table('purchase')->where('purchase_no', 'INV-ALL')->value('shop_id'))->toBe(3);
 });
 
+it('fails a batch that exceeds the max pages/invoices cap', function () {
+    config()->set('ai.max_pages_per_batch', 3);
+
+    // PdfService وهمي: يُبلّغ أن الملف 5 صفحات (> الحد 3)
+    $mock = Mockery::mock(PdfService::class);
+    $mock->shouldReceive('pageCount')->andReturn(5);
+    $mock->shouldReceive('rasterizeAll')->andReturn(['/tmp/a.png', '/tmp/b.png', '/tmp/c.png', '/tmp/d.png', '/tmp/e.png']);
+    app()->instance(PdfService::class, $mock);
+
+    $batch = plPurchaseBatch();
+    try {
+        (new ProcessPurchaseBatchJob($batch->id))->handle(app(PdfService::class));
+    } catch (\Throwable $e) {
+        // الوظيفة تُعيد رمي الخطأ بعد تعليم الدفعة فاشلة
+    }
+
+    $batch->refresh();
+    expect($batch->status)->toBe(PurchaseImportBatch::STATUS_FAILED);
+    expect($batch->error_reason)->toContain('الحد الأقصى');
+    expect(PurchaseImportItem::where('batch_id', $batch->id)->count())->toBe(0);
+});
+
 it('refuses bulk transfer when no branch is chosen', function () {
     $batch = plPurchaseBatch();
     $user = User::find($batch->create_user);

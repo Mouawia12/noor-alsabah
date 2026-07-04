@@ -39,9 +39,25 @@ class ProcessRentContractBatchJob implements ShouldQueue
             $absPdf = Storage::disk($disk)->path($batch->file_path);
             $workDir = Storage::disk($disk)->path('rent/work/' . $batch->id);
 
+            // حدّ أقصى لعدد الصفحات/العقود — حماية من ملف ضخم يُرهق الخادم.
+            $max = (int) config('ai.max_pages_per_batch', 200);
+            if ($max > 0) {
+                try {
+                    $pages = $pdf->pageCount($absPdf);
+                } catch (\Throwable $e) {
+                    $pages = 0;
+                }
+                if ($pages > $max) {
+                    throw new \RuntimeException("الملف يتجاوز الحد الأقصى ({$max} صفحة/عقد). يرجى تقسيمه إلى ملفات أصغر.");
+                }
+            }
+
             $images = $pdf->rasterizeAll($absPdf, $workDir);
             if (empty($images)) {
                 throw new \RuntimeException('لم تُنتج أي صور من الملف.');
+            }
+            if ($max > 0 && count($images) > $max) {
+                throw new \RuntimeException("الملف يتجاوز الحد الأقصى ({$max} صفحة/عقد). يرجى تقسيمه إلى ملفات أصغر.");
             }
 
             // نضبط العدد الكلي قبل جدولة العناصر: يمنع سباقاً قد يجعل عامل الطابور

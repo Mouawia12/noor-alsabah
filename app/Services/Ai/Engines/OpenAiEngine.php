@@ -185,12 +185,25 @@ class OpenAiEngine implements ExtractionEngine
         return $data;
     }
 
-    /** تحويل صورة على القرص إلى data URI بترميز base64. */
+    /** تحويل صورة على القرص إلى data URI بترميز base64 (مع تصغير/ضغط اختياري للأداء). */
     protected function toDataUri(string $path): string
     {
         if (! is_file($path)) {
             throw new RuntimeException("ملف الصورة غير موجود: {$path}");
         }
+
+        // تصغير/ضغط الصورة يقلّل الحمولة والتكلفة والزمن كثيراً للملفات الكبيرة/كثرة الفواتير
+        if (config('ai.optimize_images', true)) {
+            [$bytes, $mime] = \App\Services\Ai\ImageOptimizer::optimize(
+                $path,
+                (int) config('ai.image_max_edge', 2200),
+                (int) config('ai.image_jpeg_quality', 85),
+                (int) config('ai.image_min_bytes', 307200)
+            );
+
+            return 'data:' . $mime . ';base64,' . base64_encode($bytes);
+        }
+
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         $mime = match ($ext) {
             'png'        => 'image/png',

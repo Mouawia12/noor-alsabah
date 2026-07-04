@@ -40,9 +40,26 @@ class ProcessPurchaseBatchJob implements ShouldQueue
             $absPdf = Storage::disk($disk)->path($batch->file_path);
             $workDir = Storage::disk($disk)->path('purchase/work/' . $batch->id);
 
+            // حدّ أقصى لعدد الصفحات/الفواتير — حماية من ملف ضخم يُرهق الخادم.
+            // نتحقّق قبل التحويل عند الإمكان (PDF)، ثم بعده كضمان إضافي.
+            $max = (int) config('ai.max_pages_per_batch', 200);
+            if ($max > 0) {
+                try {
+                    $pages = $pdf->pageCount($absPdf);
+                } catch (\Throwable $e) {
+                    $pages = 0; // صورة مفردة أو تعذّر العدّ — نتحقّق بعد التحويل
+                }
+                if ($pages > $max) {
+                    throw new \RuntimeException("الملف يتجاوز الحد الأقصى ({$max} صفحة/فاتورة). يرجى تقسيمه إلى ملفات أصغر.");
+                }
+            }
+
             $images = $pdf->rasterizeAll($absPdf, $workDir);
             if (empty($images)) {
                 throw new \RuntimeException('لم تُنتج أي صور من الملف.');
+            }
+            if ($max > 0 && count($images) > $max) {
+                throw new \RuntimeException("الملف يتجاوز الحد الأقصى ({$max} صفحة/فاتورة). يرجى تقسيمه إلى ملفات أصغر.");
             }
 
             // نضبط العدد الكلي قبل جدولة العناصر: يمنع سباقاً قد يجعل عامل الطابور

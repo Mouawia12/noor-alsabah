@@ -70,8 +70,15 @@ return [
     | معالجة الصور (تحويل صفحات PDF)
     |--------------------------------------------------------------------------
     | dpi: دقة تحويل صفحة PDF إلى صورة قبل إرسالها للمحرك.
+    | optimize_images: تصغير/ضغط الصورة قبل إرسالها (يقلّل الحمولة والتكلفة والزمن كثيراً
+    |   للملفات الكبيرة). image_max_edge: أطول ضلع بالبكسل (0 = بلا تصغير). image_jpeg_quality: 40..95.
     */
-    'pdf_render_dpi' => (int) env('AI_PDF_RENDER_DPI', 200),
+    'pdf_render_dpi'     => (int) env('AI_PDF_RENDER_DPI', 200),
+    'optimize_images'    => (bool) env('AI_OPTIMIZE_IMAGES', true),
+    'image_max_edge'     => (int) env('AI_IMAGE_MAX_EDGE', 2200),
+    'image_jpeg_quality' => (int) env('AI_IMAGE_JPEG_QUALITY', 85),
+    // لا تُحسَّن الصور الأصغر من هذا (صفحات PDF النظيفة صغيرة أصلاً)؛ التحسين لصور الجوال الكبيرة.
+    'image_min_bytes'    => (int) env('AI_IMAGE_MIN_BYTES', 307200),
 
     /*
     |--------------------------------------------------------------------------
