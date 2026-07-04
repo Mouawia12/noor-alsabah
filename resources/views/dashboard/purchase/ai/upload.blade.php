@@ -66,8 +66,16 @@
                         </div>
 
                         @error('document')<div class="text-danger mt-3">{{ $message }}</div>@enderror
+                        <div id="upError" class="text-danger mt-3"></div>
 
-                        <div class="d-flex flex-wrap gap-3 mt-6">
+                        {{-- شريط تقدّم الرفع (يظهر أثناء نقل الملف) --}}
+                        <div id="uploadProgress" class="mt-5 d-none">
+                            <div class="d-flex justify-content-between mb-1"><span class="fw-bold text-gray-700"><i class="fas fa-cloud-arrow-up me-1"></i> جارٍ رفع الملف...</span><span class="fw-bold" id="upPct">0%</span></div>
+                            <div class="progress h-15px"><div id="upBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width:0%"></div></div>
+                            <div class="text-gray-500 fs-8 mt-2"><i class="fas fa-circle-info me-1"></i> بعد اكتمال الرفع تُعالَج الفواتير <b>في الخلفية</b> — يمكنك مغادرة الصفحة والعودة لاحقاً من «سجل العمليات».</div>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-3 mt-6" id="uploadActions">
                             <button type="submit" class="btn btn-primary" id="submitBtn"><i class="fas fa-wand-magic-sparkles me-1"></i> استخراج الآن</button>
                             <a href="{{ route('dashboard.purchase.ai.review') }}" class="btn btn-light-primary"><i class="fas fa-list-check me-1"></i> سجل العمليات (المراجعة)</a>
                         </div>
@@ -134,9 +142,47 @@
     ['dragleave','drop'].forEach(function(ev){ dz.addEventListener(ev, function(e){ e.preventDefault(); e.stopPropagation(); dz.classList.remove('dragover'); }); });
     dz.addEventListener('drop', function(e){ var files=e.dataTransfer.files; if(files&&files.length){ input.files=files; showFile(files[0]); } });
 
-    form.addEventListener('submit', function(){
-        if(!input.files.length){ return; }
-        submitBtn.disabled=true; submitBtn.innerHTML='<span class="spinner-border spinner-border-sm me-2"></span> جارٍ الرفع...';
+    var uploading = false;
+    // تحذير عند محاولة المغادرة/التحديث أثناء نقل الملف (حتى لا يضيع الرفع)
+    window.addEventListener('beforeunload', function(e){ if(uploading){ e.preventDefault(); e.returnValue=''; return ''; } });
+
+    var progress = document.getElementById('uploadProgress');
+    var bar = document.getElementById('upBar');
+    var pct = document.getElementById('upPct');
+    var actions = document.getElementById('uploadActions');
+    var errBox = document.getElementById('upError');
+
+    form.addEventListener('submit', function(e){
+        e.preventDefault();
+        errBox.textContent='';
+        if(!input.files.length){ errBox.textContent='يرجى اختيار ملف أولاً.'; return; }
+
+        uploading = true;
+        progress.classList.remove('d-none');
+        actions.classList.add('d-none');
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', form.action, true);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.setRequestHeader('Accept', 'application/json');
+
+        xhr.upload.onprogress = function(ev){
+            if(ev.lengthComputable){ var p=Math.round(ev.loaded/ev.total*100); bar.style.width=p+'%'; pct.textContent=p+'%';
+                if(p>=100){ pct.textContent='اكتمل الرفع — يبدأ التحضير...'; } }
+        };
+        xhr.onload = function(){
+            uploading = false; // ألغِ التحذير قبل التحويل
+            var res=null; try{ res=JSON.parse(xhr.responseText); }catch(err){}
+            if(xhr.status>=200 && xhr.status<300 && res && res.redirect){ window.location.href=res.redirect; return; }
+            // خطأ تحقّق (422) أو غيره
+            var msg = (res && (res.message || (res.errors && res.errors.document && res.errors.document[0]))) || 'تعذّر رفع الملف، حاول مجدداً.';
+            errBox.textContent = msg;
+            progress.classList.add('d-none'); actions.classList.remove('d-none');
+        };
+        xhr.onerror = function(){ uploading=false; errBox.textContent='انقطع الاتصال أثناء الرفع. تحقّق من الشبكة وحاول مجدداً.';
+            progress.classList.add('d-none'); actions.classList.remove('d-none'); };
+
+        xhr.send(new FormData(form));
     });
 })();
 </script>

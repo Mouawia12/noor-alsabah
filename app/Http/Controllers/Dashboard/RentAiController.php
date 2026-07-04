@@ -48,14 +48,23 @@ class RentAiController extends Controller
 
         $existing = $this->importService->findExistingByHash(Storage::disk($disk)->path($path));
         if ($existing) {
-            return redirect()->route('dashboard.rent.ai.batch', $existing->id)
-                ->with('alert.success', 'هذا الملف مرفوع مسبقاً — هذه نتيجة المعالجة السابقة.');
+            return $this->uploadResponse($request, $existing->id, 'هذا الملف مرفوع مسبقاً — هذه نتيجة المعالجة السابقة.');
         }
 
         $batch = $this->importService->createBatch($path, $file->getClientOriginalName(), Auth::id());
 
-        return redirect()->route('dashboard.rent.ai.batch', $batch->id)
-            ->with('alert.success', 'بدأت المعالجة. يمكنك متابعة التقدّم هنا.');
+        return $this->uploadResponse($request, $batch->id, 'بدأت المعالجة. يمكنك متابعة التقدّم هنا.');
+    }
+
+    /** استجابة الرفع: JSON عند AJAX (لمتابعة التقدّم بلا إعادة تحميل)، وإلا تحويل عادي. */
+    protected function uploadResponse(Request $request, int $batchId, string $message)
+    {
+        $url = route('dashboard.rent.ai.batch', $batchId);
+        if ($request->ajax() || $request->expectsJson()) {
+            return response()->json(['ok' => true, 'redirect' => $url, 'message' => $message]);
+        }
+
+        return redirect()->to($url)->with('alert.success', $message);
     }
 
     public function batch(RentContractImportBatch $batch)
