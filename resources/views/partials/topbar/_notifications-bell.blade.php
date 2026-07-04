@@ -79,13 +79,13 @@
             if (!a) return;
             e.preventDefault();
             var readUrl = a.getAttribute('data-read-url');
-            var goto = a.getAttribute('data-url');
+            var target = a.getAttribute('data-url');
             post(readUrl).then(function (res) {
                 setCount(res && typeof res.unread === 'number' ? res.unread : 0);
-                var dest = goto || (res && res.url) || '{{ route('dashboard.notifications.index') }}';
+                var dest = target || (res && res.url) || '{{ route('dashboard.notifications.index') }}';
                 window.location.href = dest;
             }).catch(function () {
-                window.location.href = goto || '{{ route('dashboard.notifications.index') }}';
+                window.location.href = target || '{{ route('dashboard.notifications.index') }}';
             });
         });
 

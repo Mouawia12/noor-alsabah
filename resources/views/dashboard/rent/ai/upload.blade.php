@@ -58,10 +58,12 @@
                         </label>
 
                         <div class="file-chip" id="fileChip">
-                            <i class="fas fa-file-pdf text-danger fs-3"></i>
-                            <span class="fw-bold text-gray-800" id="fileName"></span>
-                            <span class="text-gray-500 fs-8" id="fileSize"></span>
-                            <button type="button" class="btn btn-sm btn-icon btn-light-danger ms-auto" id="fileClear"><i class="fas fa-times"></i></button>
+                            <i class="fas fa-check-circle text-success fs-2"></i>
+                            <div class="d-flex flex-column">
+                                <span class="fw-bold text-success">تمت إضافة الملف — اضغط «استخراج الآن» لبدء المعالجة</span>
+                                <span class="text-gray-700"><i class="fas fa-file-pdf text-danger me-1"></i><b id="fileName"></b> <span class="text-gray-500 fs-8" id="fileSize"></span></span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-icon btn-light-danger ms-auto" id="fileClear" title="إزالة"><i class="fas fa-times"></i></button>
                         </div>
 
                         @error('document')<div class="text-danger mt-3">{{ $message }}</div>@enderror

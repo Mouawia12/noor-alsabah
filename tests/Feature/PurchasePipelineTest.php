@@ -230,3 +230,35 @@ it('refuses bulk transfer when no branch is chosen', function () {
         ->assertStatus(422)
         ->assertJson(['ok' => false]);
 });
+
+it('exposes live progress via the batch json endpoint (the polling source)', function () {
+    $batch = plPurchaseBatch();
+    $batch->update(['status' => 'processing', 'total_items' => 5, 'processed_items' => 2, 'failed_items' => 1]);
+    $user = User::find($batch->create_user);
+
+    $this->actingAs($user)->getJson(route('dashboard.purchase.ai.batch.json', $batch->id))
+        ->assertOk()
+        ->assertJson([
+            'status'          => 'processing',
+            'total_items'     => 5,
+            'processed_items' => 2,
+            'failed_items'    => 1,
+        ]);
+});
+
+it('reflects real progression as items get processed', function () {
+    fakePurchaseEngine(new FakeExtractionEngine(
+        data: ['invoice_no' => 'INV-P', 'total' => 100, 'supplier_name' => 'مورد'],
+        confidence: 0.95,
+    ));
+    fakePages(['/tmp/p1.png', '/tmp/p2.png', '/tmp/p3.png']);
+
+    $batch = plPurchaseBatch();
+    (new ProcessPurchaseBatchJob($batch->id))->handle(app(PdfService::class));
+
+    // بعد اكتمال معالجة كل العناصر: التقدّم = الإجمالي والدفعة مكتملة
+    $batch->refresh();
+    expect($batch->total_items)->toBe(3);
+    expect($batch->processed_items + $batch->failed_items)->toBe(3);
+    expect($batch->status)->toBe(PurchaseImportBatch::STATUS_COMPLETED);
+});

@@ -62,6 +62,10 @@
             </div>
 
             <div id="errorBox" class="alert alert-danger mt-5 {{ $batch->error_reason ? '' : 'd-none' }}">{{ $batch->error_reason }}</div>
+            <div id="stuckWarn" class="alert alert-warning mt-5 d-none">
+                <i class="fas fa-triangle-exclamation me-2"></i>
+                لم يبدأ التقدّم منذ فترة. غالباً عامل المعالجة (queue worker) متوقّف على الخادم — يرجى إبلاغ مسؤول النظام لتشغيله. سيُستأنف تلقائياً عند تشغيله.
+            </div>
             <div id="doneBox" class="mt-5 d-none">
                 <div class="alert alert-success d-flex align-items-center">
                     <i class="fas fa-check-circle fs-2 me-3"></i>
@@ -100,9 +104,18 @@
         }
         return false;
     }
+    var lastDone = -1, stalls = 0;
+    function checkStall(d) {
+        var done = (d.processed_items || 0) + (d.failed_items || 0);
+        if (done !== lastDone) { lastDone = done; stalls = 0; document.getElementById('stuckWarn').classList.add('d-none'); return; }
+        if (d.status === 'pending' || d.status === 'processing') {
+            stalls++;
+            if (stalls >= 8) document.getElementById('stuckWarn').classList.remove('d-none');
+        }
+    }
     function poll() {
-        fetch(url, { headers: { 'Accept': 'application/json' } })
-            .then(r => r.json()).then(d => { if (!render(d)) setTimeout(poll, 3000); })
+        fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.json()).then(d => { checkStall(d); if (!render(d)) setTimeout(poll, 3000); })
             .catch(() => setTimeout(poll, 5000));
     }
     poll();
