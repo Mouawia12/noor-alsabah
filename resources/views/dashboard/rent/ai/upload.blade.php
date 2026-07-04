@@ -47,14 +47,15 @@
                 <div class="card-body">
                     <form id="uploadForm" action="{{ route('dashboard.rent.ai.store') }}" method="POST" enctype="multipart/form-data">
                         @csrf
-                        <input type="file" id="fileInput" name="document" class="d-none" accept=".pdf,.jpg,.jpeg,.png" required>
+                        <input type="file" id="fileInput" name="document" class="d-none" accept=".pdf,.jpg,.jpeg,.png">
 
-                        <div class="drop-zone" id="dropZone">
+                        {{-- منطقة الإفلات كـ <label> ⇒ النقر يفتح نافذة الملف تلقائياً (يعمل حتى بلا JS) --}}
+                        <label for="fileInput" class="drop-zone d-block" id="dropZone">
                             <div class="drop-ico"><i class="fas fa-cloud-arrow-up"></i></div>
                             <div class="fs-4 fw-bold text-gray-800 mb-1">أفلت ملف العقود (PDF) هنا</div>
                             <div class="text-gray-500">أو انقر للاختيار — عقد واحد أو عدة عقود في ملف واحد</div>
                             <div class="text-gray-400 fs-8 mt-2">PDF أو JPG أو PNG — بحد أقصى 50 ميغابايت</div>
-                        </div>
+                        </label>
 
                         <div class="file-chip" id="fileChip">
                             <i class="fas fa-file-pdf text-danger fs-3"></i>
@@ -130,7 +131,7 @@
     function showFile(f){ if(!f){ chip.style.display='none'; dz.style.display='block'; return; }
         nameEl.textContent=f.name; sizeEl.textContent=human(f.size); chip.style.display='flex'; dz.style.display='none'; }
 
-    dz.addEventListener('click', function(){ input.click(); });
+    // النقر يفتحه الـ <label> تلقائياً (لا نحتاج input.click() حتى لا يُفتح مرتين)
     input.addEventListener('change', function(){ showFile(input.files[0]); });
     clearBtn.addEventListener('click', function(){ input.value=''; showFile(null); });
 
