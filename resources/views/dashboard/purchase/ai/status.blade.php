@@ -2,6 +2,20 @@
 @section('module', 'نظام الحوسبة')
 @section('sub', 'المشتريات')
 @section('title', $page_title)
+
+@section('styles')
+<style>
+    .scan-doc{width:96px;height:120px;margin:0 auto;position:relative;border-radius:8px;background:#fff;
+        box-shadow:0 6px 18px rgba(11,86,164,.15);border:1px solid #e6ebf2;overflow:hidden}
+    .scan-doc .ln{height:6px;background:#e6ebf2;border-radius:3px;margin:12px 12px 0}
+    .scan-doc .ln.s{width:55%}
+    .scan-doc .beam{position:absolute;left:0;right:0;height:26px;top:-26px;
+        background:linear-gradient(180deg,rgba(0,158,247,0) 0%,rgba(0,158,247,.35) 60%,rgba(0,158,247,.55) 100%);
+        animation:scan 1.6s ease-in-out infinite}
+    @keyframes scan{0%{top:-26px}100%{top:120px}}
+</style>
+@endsection
+
 @section('content')
 
     @if (session()->has('alert.success'))
@@ -19,9 +33,13 @@
             <div class="progress h-25px mb-5">
                 <div id="progressBar" class="progress-bar bg-primary fw-bold" role="progressbar" style="width: 0%">0%</div>
             </div>
-            <div id="processingMsg" class="alert alert-light-primary d-flex align-items-center {{ in_array($batch->status, ['completed','failed']) ? 'd-none' : '' }}">
-                <span class="spinner-border spinner-border-sm text-primary ms-3" role="status"></span>
-                <span>جاري معالجة الفواتير الآن، يرجى الانتظار... (تُعالَج في الخلفية؛ يمكنك متابعة التقدّم هنا)</span>
+            <div id="processingMsg" class="text-center py-6 {{ in_array($batch->status, ['completed','failed']) ? 'd-none' : '' }}">
+                <div class="scan-doc mb-4">
+                    <div class="beam"></div>
+                    <div class="ln"></div><div class="ln"></div><div class="ln s"></div><div class="ln"></div><div class="ln s"></div>
+                </div>
+                <div class="fs-4 fw-bold text-gray-800">جارٍ قراءة الفواتير...</div>
+                <div class="text-gray-500">الذكاء الاصطناعي يستخرج البيانات، يرجى الانتظار قليلاً (تُعالَج في الخلفية)</div>
             </div>
 
             {{-- عدّادات واضحة: الإجمالي / مقبولة / مرفوضة --}}
