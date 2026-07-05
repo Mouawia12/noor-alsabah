@@ -73,9 +73,11 @@ return [
     | optimize_images: تصغير/ضغط الصورة قبل إرسالها (يقلّل الحمولة والتكلفة والزمن كثيراً
     |   للملفات الكبيرة). image_max_edge: أطول ضلع بالبكسل (0 = بلا تصغير). image_jpeg_quality: 40..95.
     */
-    'pdf_render_dpi'     => (int) env('AI_PDF_RENDER_DPI', 200),
+    // 150 DPI كافٍ لنماذج الرؤية لقراءة الفواتير، وأخفّ بكثير على CPU/الذاكرة من 200
+    // (مهم على الاستضافة المشتركة). ارفعه فقط إن ظهرت مشاكل قراءة فعلية.
+    'pdf_render_dpi'     => (int) env('AI_PDF_RENDER_DPI', 150),
     'optimize_images'    => (bool) env('AI_OPTIMIZE_IMAGES', true),
-    'image_max_edge'     => (int) env('AI_IMAGE_MAX_EDGE', 2200),
+    'image_max_edge'     => (int) env('AI_IMAGE_MAX_EDGE', 1800),
     'image_jpeg_quality' => (int) env('AI_IMAGE_JPEG_QUALITY', 85),
     // لا تُحسَّن الصور الأصغر من هذا (صفحات PDF النظيفة صغيرة أصلاً)؛ التحسين لصور الجوال الكبيرة.
     'image_min_bytes'    => (int) env('AI_IMAGE_MIN_BYTES', 307200),

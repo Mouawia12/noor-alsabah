@@ -54,8 +54,11 @@ class ProcessPurchaseItemJob implements ShouldQueue
             // 1) استخراج (مع تصعيد للنموذج الأقوى عند انخفاض الثقة)
             $result = $engine->extract($images, InvoiceSchema::schema(), $prompt);
             $threshold = (float) config('ai.confidence_threshold', 0.8);
+            // لا تصعيد إذا كان النموذج الأقوى = الأساسي (استدعاء ثانٍ بلا فائدة يضاعف الزمن/التكلفة)
+            $canEscalate = config('ai.escalate_on_low_conf')
+                && config('ai.openai.model') !== config('ai.openai.model_heavy');
 
-            if (config('ai.escalate_on_low_conf') && $result->confidence !== null && $result->confidence < $threshold) {
+            if ($canEscalate && $result->confidence !== null && $result->confidence < $threshold) {
                 $heavy = $engine->extract($images, InvoiceSchema::schema(), $prompt, ['heavy' => true]);
                 if (($heavy->confidence ?? 0) > ($result->confidence ?? 0)) {
                     $result = $heavy;

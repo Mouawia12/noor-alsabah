@@ -113,6 +113,11 @@ it('rejects an unreadable invoice with a clear Arabic reason', function () {
 });
 
 it('escalates to the heavy model when confidence is low', function () {
+    // التصعيد يعمل فقط عندما يختلف النموذج الأقوى عن الأساسي
+    config()->set('ai.escalate_on_low_conf', true);
+    config()->set('ai.openai.model', 'fake-base');
+    config()->set('ai.openai.model_heavy', 'fake-heavy');
+
     $engine = fakePurchaseEngine(new FakeExtractionEngine(
         data: ['invoice_no' => 'INV-ESC', 'total' => 500],
         confidence: 0.50, // أقل من العتبة 0.80 → تصعيد
@@ -131,6 +136,24 @@ it('escalates to the heavy model when confidence is low', function () {
     $item = PurchaseImportItem::where('batch_id', $batch->id)->first();
     expect((float) $item->confidence)->toBe(0.93); // اعتُمدت نتيجة النموذج الأقوى
     expect($item->status)->toBe(PurchaseImportItem::STATUS_NEEDS_REVIEW);
+});
+
+it('does NOT double-call when heavy model equals base model (perf)', function () {
+    // النموذجان متطابقان → لا تصعيد (استدعاء واحد فقط) لتوفير الزمن/التكلفة
+    config()->set('ai.escalate_on_low_conf', true);
+    config()->set('ai.openai.model', 'gpt-5.5');
+    config()->set('ai.openai.model_heavy', 'gpt-5.5');
+
+    $engine = fakePurchaseEngine(new FakeExtractionEngine(
+        data: ['invoice_no' => 'INV-NOESC', 'total' => 500],
+        confidence: 0.40, // منخفضة، لكن لا تصعيد لأن النموذجين متطابقان
+    ));
+    fakePages(['/tmp/noesc.png']);
+
+    $batch = plPurchaseBatch();
+    (new ProcessPurchaseBatchJob($batch->id))->handle(app(PdfService::class));
+
+    expect($engine->calls)->toBe(1); // استدعاء واحد لا اثنان
 });
 
 it('approves a reviewed item and creates a real purchase record', function () {
