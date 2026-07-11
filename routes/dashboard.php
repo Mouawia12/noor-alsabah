@@ -9,6 +9,7 @@ use App\Http\Controllers\Dashboard\FinancialController;
 use App\Http\Controllers\Dashboard\ViolationController;
 
 use App\Http\Controllers\Dashboard\ShopController;
+use App\Http\Controllers\Dashboard\ShopCodeController;
 use App\Http\Controllers\Dashboard\ManagerController;
 use App\Http\Controllers\Dashboard\PurchaseController;
 use App\Http\Controllers\Dashboard\PurchaseAiController;
@@ -325,6 +326,11 @@ Route::group([
         Route::get('/purchase/ai/batch/{batch}/json', [PurchaseAiController::class, 'batchJson'])->name('purchase.ai.batch.json');
         Route::get('/purchase/ai/item/{item}/image/{page?}', [PurchaseAiController::class, 'image'])->name('purchase.ai.image');
         Route::get('/purchase/ai/failed', [PurchaseAiController::class, 'failed'])->name('purchase.ai.failed');
+        // إدارة أكواد المحلات
+        Route::get('/shop-codes', [ShopCodeController::class, 'index'])->name('shop_codes.index');
+        Route::post('/shop-codes/save', [ShopCodeController::class, 'save'])->name('shop_codes.save');
+        Route::post('/shop-codes/toggle', [ShopCodeController::class, 'toggle'])->name('shop_codes.toggle');
+
         Route::get('/purchase/ai/reports', [PurchaseAiController::class, 'reports'])->name('purchase.ai.reports');
         Route::get('/purchase/ai/reports/export', [PurchaseAiController::class, 'exportReports'])->name('purchase.ai.reports.export');
         Route::get('/purchase/ai/batch/{batch}/report', [PurchaseAiController::class, 'batchReport'])->name('purchase.ai.batch.report');

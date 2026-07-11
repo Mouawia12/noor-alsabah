@@ -347,6 +347,16 @@
                     </div>
                     <?php } ?>
                     <div class="menu-item">
+                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.shop_codes.index') active @endif"
+                           href="{{ route('dashboard.shop_codes.index') }}" data-bs-toggle="tooltip"
+                           data-bs-trigger="hover" data-bs-dismiss="click" data-bs-placement="right">
+                            <span class="menu-bullet">
+                                <span class="bullet bullet-dot"></span>
+                            </span>
+                            <span class="menu-title text-dark">إدارة أكواد المحلات</span>
+                        </a>
+                    </div>
+                    <div class="menu-item">
                         <a class="menu-link @if (Route::currentRouteName() == 'dashboard.rent.ai.index') active @endif"
                            href="{{ route('dashboard.rent.ai.index') }}">
                             <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
