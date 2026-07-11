@@ -70,10 +70,10 @@
                     "<'row'<'col-sm-12 col-md-6'i><'col-sm-12 col-md-6'p>>" +
                     "<'row'<'col-sm-12'tr>>" +
                     "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
-            pageLength: 3000,
+            pageLength: 25,
         "lengthMenu": [
-            [20, 30, 3000, 100, 13000, 200],
-            [20, 30, 3000, 100, 13000, 200]
+            [10, 25, 50, 100, 200],
+            [10, 25, 50, 100, 200]
         ],
             responsive: true,
             "ordering": false,
