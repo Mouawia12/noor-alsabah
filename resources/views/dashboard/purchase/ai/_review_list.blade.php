@@ -1,4 +1,16 @@
-@php $threshold = (float) config('ai.confidence_threshold', 0.8); @endphp
+@php
+    $threshold = (float) config('ai.confidence_threshold', 0.8);
+    // أرقام الفواتير المكررة: موجودة مسبقاً في المشتريات، أو مكررة داخل نفس القائمة (نفس الملف)
+    $nos = collect($items->items())
+        ->map(fn ($it) => trim((string) (($it->extracted_json['data']['invoice_no'] ?? ''))))
+        ->filter();
+    $existingNos = [];
+    if ($nos->isNotEmpty() && \Illuminate\Support\Facades\Schema::hasTable('purchase')) {
+        $existingNos = \Illuminate\Support\Facades\DB::table('purchase')
+            ->whereIn('purchase_no', $nos->unique()->values()->all())->pluck('purchase_no')->all();
+    }
+    $dupNos = array_values(array_unique(array_merge($nos->duplicates()->values()->all(), $existingNos)));
+@endphp
 <div class="table-responsive">
     <table class="table table-row-bordered table-hover align-middle">
         <thead><tr class="fw-bold text-muted bg-light">
@@ -6,14 +18,15 @@
         </tr></thead>
         <tbody>
             @forelse ($items as $i => $item)
-                @php $d = $item->extracted_json['data'] ?? []; $conf = $item->confidence; $low = $conf !== null && $conf < $threshold; @endphp
+                @php $d = $item->extracted_json['data'] ?? []; $conf = $item->confidence; $low = $conf !== null && $conf < $threshold;
+                    $isDup = $item->is_duplicate || in_array(trim((string) ($d['invoice_no'] ?? '')), $dupNos, true); @endphp
                 <tr data-item="{{ $item->id }}">
                     <td>{{ $items->firstItem() + $i }}</td>
                     <td>{{ \Illuminate\Support\Str::limit($item->batch->original_filename ?? '—', 18) }} <span class="text-muted fs-8">(ص {{ $item->page_from }}–{{ $item->page_to }})</span></td>
                     <td class="fw-bold">{{ $d['invoice_no'] ?? '—' }}</td>
                     <td>{{ \Illuminate\Support\Str::limit($d['supplier_name'] ?? '—', 16) }}</td>
                     <td>{{ $d['total'] ?? '—' }}</td>
-                    <td>@if ($conf !== null)<span class="badge badge-light-{{ $low ? 'danger' : 'success' }}">{{ round($conf * 100) }}%</span>@endif @if ($item->is_duplicate)<span class="badge badge-light-danger">مكرر؟</span>@endif</td>
+                    <td>@if ($conf !== null)<span class="badge badge-light-{{ $low ? 'danger' : 'success' }}">{{ round($conf * 100) }}%</span>@endif @if ($isDup)<span class="badge badge-danger" title="رقم الفاتورة مكرّر — لن يُقبل ترحيله أكثر من مرة">فاتورة مكرّرة</span>@endif</td>
                     <td class="text-nowrap">
                         <button type="button" class="btn btn-sm btn-success js-approve" data-url="{{ route('dashboard.purchase.ai.approve', $item->id) }}">ترحيل</button>
                         <button type="button" class="btn btn-sm btn-light-primary" data-bs-toggle="modal" data-bs-target="#purModal{{ $item->id }}">مراجعة/تعديل</button>

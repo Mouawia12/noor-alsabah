@@ -84,6 +84,10 @@ class PurchaseImportService
                 ->supplier_id;
         }
 
+        // اسم المورد المعروض في شاشة مصاريف شراء المحلات (عمود purchase_respon)
+        // نأخذ الاسم كما استُخرج/عُدِّل ليظهر بعد الترحيل (كان يبقى فارغاً سابقاً)
+        $supplierName = $overrides['new_supplier_name'] ?? ($data['supplier_name'] ?? null);
+
         // الفرع/المحل الذي تُرحَّل إليه الفاتورة (اختيار المستخدم من قائمة المحلات)
         $shopId = isset($overrides['shop_id']) && $overrides['shop_id'] !== '' ? (int) $overrides['shop_id'] : null;
 
@@ -96,6 +100,7 @@ class PurchaseImportService
             'tax_amount'        => $this->num($data['tax_amount'] ?? null),
             'purchase_price'    => $this->num($data['total'] ?? null),
             'supplier_id'       => $supplierId,
+            'purchase_respon'   => $supplierName,
             'shop_id'           => $shopId,
             'purchasefile'      => $item->batch->file_path ?? null,
             'note'              => $data['note'] ?? null,

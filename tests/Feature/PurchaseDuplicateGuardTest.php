@@ -24,6 +24,7 @@ beforeEach(function () {
         $t->decimal('tax_amount', 15, 2)->nullable();
         $t->decimal('purchase_price', 15, 2)->nullable();
         $t->unsignedBigInteger('supplier_id')->nullable();
+        $t->string('purchase_respon')->nullable();
         $t->unsignedBigInteger('shop_id')->nullable();
         $t->string('purchasefile')->nullable();
         $t->text('note')->nullable();
@@ -73,4 +74,6 @@ it('saves an invoice whose number is new', function () {
     expect($id)->toBeGreaterThan(0);
     expect(DB::table('purchase')->where('purchase_no', 'INV-NEW-9')->count())->toBe(1);
     expect($item->fresh()->status)->toBe('approved');
+    // اسم المورد يُحفظ في purchase_respon ليظهر في شاشة مصاريف شراء المحلات
+    expect(DB::table('purchase')->where('purchase_no', 'INV-NEW-9')->value('purchase_respon'))->toBe('مورد الاختبار');
 });

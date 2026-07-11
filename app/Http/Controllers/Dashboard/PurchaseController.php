@@ -101,7 +101,8 @@ class PurchaseController extends Controller
 
                 $shop = Shop::find($x->shop_id);
                 if ($request->shops == "on")
-                    $row[] = isset($shop) ? ($shop->shop_name . " - " . $shop->municip->municip_no) : "";
+                    // كود الفرع بجانب الاسم لتمييز المحلات المتشابهة
+                    $row[] = isset($shop) ? (($shop->shop_code ? '(' . $shop->shop_code . ') ' : '') . $shop->shop_name . " - " . $shop->municip->municip_no) : "";
                 else
                     $row[] = $x->manager_name;
 

@@ -135,9 +135,9 @@ class ReportController extends Controller
             $tax_number = $x->tax_number ?? '';
             $purchase_respon = $x->purchase_respon;
             $shop = Shop::find($x->shop_id);
-            // عمود المحل/المجموعة: المحل إن وُجد وإلا اسم المجموعة/القائد (مطابق للشاشة)
+            // عمود المحل/المجموعة: المحل (مع كود الفرع) إن وُجد وإلا اسم المجموعة/القائد (مطابق للشاشة)
             $shop_or_group = isset($shop)
-                ? trim($shop->shop_name . ' - ' . ($shop->municip->municip_no ?? ''))
+                ? trim(($shop->shop_code ? '(' . $shop->shop_code . ') ' : '') . $shop->shop_name . ' - ' . ($shop->municip->municip_no ?? ''))
                 : ($x->manager_name ?? '');
             $entered_by = optional(User::find($x->create_user))->name;             // المدخِل
             $created_at = Carbon::parse($x->created_at)->format('d-m-Y');

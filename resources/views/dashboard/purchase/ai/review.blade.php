@@ -11,10 +11,11 @@
             <h3 class="card-title">الفواتير المقبولة بانتظار الترحيل (<span id="reviewCount">{{ $items->total() }}</span>)</h3>
             <div class="d-flex align-items-center gap-3 flex-wrap">
                 <label class="fw-bold text-gray-700">رحّل إلى الفرع / المحل:</label>
-                <select id="shopSelect" class="form-select form-select-sm w-auto fw-bold" style="min-width:240px">
+                <select id="shopSelect" class="form-select form-select-sm fw-bold" style="min-width:280px"
+                        data-control="select2" data-placeholder="ابحث بالاسم أو الكود...">
                     <option value="">— اختر الفرع —</option>
                     @foreach ($shops as $shop)
-                        <option value="{{ $shop->shop_id }}">{{ ($shop->shop_code ? '('.$shop->shop_code.') ' : '').$shop->shop_name }}</option>
+                        <option value="{{ $shop->shop_id }}" data-code="{{ $shop->shop_code }}">{{ ($shop->shop_code ? '('.$shop->shop_code.') ' : '').$shop->shop_name }}</option>
                     @endforeach
                 </select>
                 <button type="button" id="approveAllBtn" class="btn btn-success" data-url="{{ route('dashboard.purchase.ai.approve_all') }}">ترحيل الفواتير ✓</button>
@@ -105,6 +106,14 @@
         // مؤشّر الفرع المحدد يتحدّث فور الاختيار
         var sel=document.getElementById('shopSelect');
         if(sel){ sel.addEventListener('change', refreshChosen); refreshChosen(); }
+
+        // بحث بالكتابة (بالاسم أو الكود) عبر Select2 إن توفّر
+        if (window.jQuery && jQuery.fn && jQuery.fn.select2) {
+            jQuery('#shopSelect').select2({
+                placeholder: 'ابحث بالاسم أو الكود...',
+                dir: 'rtl', width: '280px', allowClear: true
+            }).on('change', refreshChosen);
+        }
     });
 })();
 </script>
