@@ -61,18 +61,18 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-        // فتح القائمة → حدّثها
+        /* فتح القائمة → حدّثها */
         var bell = document.getElementById('notifBell');
         if (bell) bell.addEventListener('click', function () { setTimeout(refresh, 50); });
 
-        // تعليم الكل كمقروء
+        /* تعليم الكل كمقروء */
         var markAll = document.getElementById('notifMarkAll');
         if (markAll) markAll.addEventListener('click', function (e) {
             e.preventDefault(); e.stopPropagation();
             post(markAll.getAttribute('data-url')).then(function () { setCount(0); refresh(); });
         });
 
-        // نقر إشعار → علّمه مقروءاً ثم انتقل لرابطه
+        /* نقر إشعار → علّمه مقروءاً ثم انتقل لرابطه */
         var list = document.getElementById('notifList');
         if (list) list.addEventListener('click', function (e) {
             var a = e.target.closest('.notif-item');
@@ -89,7 +89,7 @@
             });
         });
 
-        // استطلاع دوري كل 45 ثانية للعدّاد
+        /* استطلاع دوري كل 45 ثانية للعدّاد */
         setInterval(refresh, 45000);
     });
 })();

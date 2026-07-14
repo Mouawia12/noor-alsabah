@@ -169,7 +169,8 @@ return [
         App\Providers\RouteServiceProvider::class,
         Elibyy\TCPDF\ServiceProvider::class,
         Jenssegers\Agent\AgentServiceProvider::class,
-        Barryvdh\Debugbar\ServiceProvider::class,
+        // debugbar is a dev-only (require-dev) package; guard so --no-dev prod deploys don't fail
+        ...(class_exists(\Barryvdh\Debugbar\ServiceProvider::class) ? [\Barryvdh\Debugbar\ServiceProvider::class] : []),
     ])->toArray(),
 
     /*
@@ -188,7 +189,8 @@ return [
         'Perm' => App\Helpers\Perm::class,
         'PDF' => Elibyy\TCPDF\Facades\TCPDF::class,
         'Agent' => Jenssegers\Agent\Facades\Agent::class,
-        'Debugbar' => Barryvdh\Debugbar\Facades\Debugbar::class,
+        // guarded: alias only when the dev-only debugbar package is installed (prod --no-dev safe)
+        ...(class_exists(\Barryvdh\Debugbar\Facades\Debugbar::class) ? ['Debugbar' => \Barryvdh\Debugbar\Facades\Debugbar::class] : []),
     ])->toArray(),
 
 ];

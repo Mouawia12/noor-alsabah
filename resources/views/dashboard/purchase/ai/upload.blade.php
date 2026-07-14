@@ -137,7 +137,7 @@
     function showFile(f){ if(!f){ chip.style.display='none'; dz.style.display='block'; return; }
         nameEl.textContent=f.name; sizeEl.textContent=human(f.size); chip.style.display='flex'; dz.style.display='none'; }
 
-    // النقر يفتحه الـ <label> تلقائياً (لا نحتاج input.click() حتى لا يُفتح مرتين)
+    /* النقر يفتحه الـ <label> تلقائياً (لا نحتاج input.click() حتى لا يُفتح مرتين) */
     input.addEventListener('change', function(){ showFile(input.files[0]); });
     clearBtn.addEventListener('click', function(){ input.value=''; showFile(null); });
 
@@ -146,7 +146,7 @@
     dz.addEventListener('drop', function(e){ var files=e.dataTransfer.files; if(files&&files.length){ input.files=files; showFile(files[0]); } });
 
     var uploading = false;
-    // تحذير عند محاولة المغادرة/التحديث أثناء نقل الملف (حتى لا يضيع الرفع)
+    /* تحذير عند محاولة المغادرة/التحديث أثناء نقل الملف (حتى لا يضيع الرفع) */
     window.addEventListener('beforeunload', function(e){ if(uploading){ e.preventDefault(); e.returnValue=''; return ''; } });
 
     var progress = document.getElementById('uploadProgress');
@@ -174,10 +174,10 @@
                 if(p>=100){ pct.textContent='اكتمل الرفع — يبدأ التحضير...'; } }
         };
         xhr.onload = function(){
-            uploading = false; // ألغِ التحذير قبل التحويل
+            uploading = false; /* ألغِ التحذير قبل التحويل */
             var res=null; try{ res=JSON.parse(xhr.responseText); }catch(err){}
             if(xhr.status>=200 && xhr.status<300 && res && res.redirect){ window.location.href=res.redirect; return; }
-            // خطأ تحقّق (422) أو غيره
+            /* خطأ تحقّق (422) أو غيره */
             var msg = (res && (res.message || (res.errors && res.errors.document && res.errors.document[0]))) || 'تعذّر رفع الملف، حاول مجدداً.';
             errBox.textContent = msg;
             progress.classList.add('d-none'); actions.classList.remove('d-none');

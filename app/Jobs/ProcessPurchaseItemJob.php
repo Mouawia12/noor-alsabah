@@ -8,6 +8,7 @@ use App\Models\PurchaseImportItem;
 use App\Services\Ai\DuplicateDetectionService;
 use App\Services\Ai\ExtractionManager;
 use App\Services\Ai\InvoiceValidationService;
+use App\Services\Ai\PdfService;
 use App\Services\Ai\Schemas\InvoiceSchema;
 use App\Services\Ai\SupplierMatchingService;
 use Illuminate\Bus\Queueable;
@@ -16,6 +17,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * معالجة عنصر (فاتورة) واحد: استخراج → تحقق → كشف تكرار → مطابقة مورد.
@@ -35,7 +37,8 @@ class ProcessPurchaseItemJob implements ShouldQueue
         ExtractionManager $manager,
         InvoiceValidationService $validator,
         DuplicateDetectionService $dedup,
-        SupplierMatchingService $suppliers
+        SupplierMatchingService $suppliers,
+        PdfService $pdf
     ): void {
         $item = PurchaseImportItem::find($this->itemId);
         if (! $item) {
@@ -45,7 +48,12 @@ class ProcessPurchaseItemJob implements ShouldQueue
         $item->update(['status' => PurchaseImportItem::STATUS_PROCESSING]);
 
         try {
-            $images = array_filter(explode(',', (string) $item->source_file_path));
+            $images = array_values(array_filter(explode(',', (string) $item->source_file_path)));
+
+            // شفاء ذاتي: صور صفحات العمل ملفات وسيطة قد تُنظَّف من القرص (نشر/تنظيف خادم).
+            // بدل الفشل، نعيد توليدها من الـPDF الأصلي للدفعة إن غابت — فتعمل إعادة المعالجة دائماً.
+            $images = $this->ensureImages($item, $images, $pdf);
+
             $engine = $manager->engine();
 
             // التعلّم المستمر: أضف تلميحات من تصحيحات سابقة إلى المطالبة
@@ -116,6 +124,45 @@ class ProcessPurchaseItemJob implements ShouldQueue
             $this->bumpBatch($item->batch_id);
             throw $e;
         }
+    }
+
+    /**
+     * يضمن وجود صور صفحات العنصر على القرص، ويعيد توليدها من الـPDF الأصلي عند غيابها.
+     * صور مجلد purchase/work/<batch> وسيطة وقد تُحذف خارجياً (نشر/تنظيف خادم)؛ إعادة
+     * التوليد تجعل إعادة معالجة العنصر/الدفعة تعمل دائماً ما دام ملف الـPDF الأصلي موجوداً.
+     *
+     * @param  string[]  $images
+     * @return string[]
+     */
+    protected function ensureImages(PurchaseImportItem $item, array $images, PdfService $pdf): array
+    {
+        $disk = config('ai.disk');
+
+        // اشتقاق المسارات المتوقّعة إن لم تُخزَّن (نادر): purchase/work/<batch>/page_<n>.png
+        if (empty($images)) {
+            $workDir = Storage::disk($disk)->path('purchase/work/' . $item->batch_id);
+            $from = (int) $item->page_from;
+            $to   = max($from, (int) $item->page_to);
+            for ($p = $from; $p <= $to; $p++) {
+                $images[] = $workDir . '/page_' . $p . '.png';
+            }
+        }
+
+        if (empty($images) || empty(array_filter($images, fn ($p) => ! is_file($p)))) {
+            return $images; // كل الصور موجودة (أو لا مسارات) — لا حاجة لإعادة التوليد
+        }
+
+        $batch  = $item->batch;
+        $absPdf = $batch ? Storage::disk($disk)->path($batch->file_path) : null;
+        if (! $absPdf || ! is_file($absPdf)) {
+            // لا مصدر لإعادة التوليد — نترك المعالجة تفشل (الملف الأصلي مفقود).
+            throw new \RuntimeException('تعذّرت إعادة توليد صور الفاتورة: الملف الأصلي غير موجود.');
+        }
+
+        // إعادة تنقيط كامل الدفعة في مجلد العمل؛ الأسماء page_1.png.. تطابق source_file_path.
+        $pdf->rasterizeAll($absPdf, dirname($images[0]));
+
+        return $images;
     }
 
     /**

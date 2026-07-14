@@ -69,14 +69,17 @@ class ProcessPurchaseBatchJob implements ShouldQueue
 
             // عنصر لكل صفحة (الدمج الذكي يتم بعد الاستخراج) — قوي وقابل للتوسّع
             foreach ($images as $i => $path) {
-                PurchaseImportItem::create([
+                $item = PurchaseImportItem::create([
                     'batch_id'         => $batch->id,
                     'page_from'        => $i + 1,
                     'page_to'          => $i + 1,
                     'source_file_path' => $path,
                     'page_hash'        => is_file($path) ? hash_file('sha256', $path) : $path,
                     'status'           => PurchaseImportItem::STATUS_PENDING,
-                ])->each(fn ($item) => ProcessPurchaseItemJob::dispatch($item->id));
+                ]);
+                // مهمة واحدة للعنصر المُنشأ للتوّ. (كان ->each() يُمرَّر إلى Eloquent Builder
+                // فيمرّ على كل عناصر الجدول ويُرسل مهمة لكلٍّ منها × عدد الصفحات = تكرار هائل.)
+                ProcessPurchaseItemJob::dispatch($item->id);
             }
         } catch (\Throwable $e) {
             $batch->update([

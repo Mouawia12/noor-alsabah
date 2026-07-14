@@ -133,7 +133,7 @@
     function showFile(f){ if(!f){ chip.style.display='none'; dz.style.display='block'; return; }
         nameEl.textContent=f.name; sizeEl.textContent=human(f.size); chip.style.display='flex'; dz.style.display='none'; }
 
-    // النقر يفتحه الـ <label> تلقائياً (لا نحتاج input.click() حتى لا يُفتح مرتين)
+    /* النقر يفتحه الـ <label> تلقائياً (لا نحتاج input.click() حتى لا يُفتح مرتين) */
     input.addEventListener('change', function(){ showFile(input.files[0]); });
     clearBtn.addEventListener('click', function(){ input.value=''; showFile(null); });
 
