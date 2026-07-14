@@ -51,6 +51,14 @@ function fakePurchaseEngine(FakeExtractionEngine $engine): FakeExtractionEngine
 /** يزيّف PdfService ليُرجِع مسارات صفحات جاهزة بدل تحويل PDF حقيقي. */
 function fakePages(array $paths): void
 {
+    // ننشئ ملفات حقيقية حتى يجتاز فحص «الشفاء الذاتي» (is_file) في ProcessPurchaseItemJob
+    // فلا يحاول إعادة توليد الصور من PDF غير موجود.
+    foreach ($paths as $p) {
+        if (! is_dir(dirname($p))) {
+            @mkdir(dirname($p), 0777, true);
+        }
+        @file_put_contents($p, 'png');
+    }
     $mock = Mockery::mock(PdfService::class);
     $mock->shouldReceive('rasterizeAll')->andReturn($paths);
     app()->instance(PdfService::class, $mock);
