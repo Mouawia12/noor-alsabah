@@ -324,6 +324,7 @@ Route::group([
         Route::get('/purchase/ai', [PurchaseAiController::class, 'index'])->name('purchase.ai.index');
         Route::post('/purchase/ai/upload', [PurchaseAiController::class, 'store'])->name('purchase.ai.store');
         Route::get('/purchase/ai/review', [PurchaseAiController::class, 'review'])->name('purchase.ai.review');
+        Route::get('/purchase/ai/review/export', [PurchaseAiController::class, 'exportReview'])->name('purchase.ai.review.export');
         Route::get('/purchase/ai/batch/{batch}', [PurchaseAiController::class, 'batch'])->name('purchase.ai.batch');
         Route::get('/purchase/ai/batch/{batch}/json', [PurchaseAiController::class, 'batchJson'])->name('purchase.ai.batch.json');
         Route::get('/purchase/ai/item/{item}/image/{page?}', [PurchaseAiController::class, 'image'])->name('purchase.ai.image');
@@ -350,6 +351,7 @@ Route::group([
         Route::get('/rent/ai', [RentAiController::class, 'index'])->name('rent.ai.index');
         Route::post('/rent/ai/upload', [RentAiController::class, 'store'])->name('rent.ai.store');
         Route::get('/rent/ai/review', [RentAiController::class, 'review'])->name('rent.ai.review');
+        Route::get('/rent/ai/review/export', [RentAiController::class, 'exportReview'])->name('rent.ai.review.export');
         Route::get('/rent/ai/batch/{batch}', [RentAiController::class, 'batch'])->name('rent.ai.batch');
         Route::get('/rent/ai/batch/{batch}/json', [RentAiController::class, 'batchJson'])->name('rent.ai.batch.json');
         Route::get('/rent/ai/item/{item}/image/{page?}', [RentAiController::class, 'image'])->name('rent.ai.image');

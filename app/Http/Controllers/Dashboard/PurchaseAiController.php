@@ -301,6 +301,36 @@ class PurchaseAiController extends Controller
         return $this->exportData('تقرير_المشتريات', $rows, $top, ['المورد', 'عدد الفواتير', 'الإجمالي'], $format);
     }
 
+    /** تصدير قائمة الفواتير بانتظار المراجعة (PDF/Excel) — نفس ما يظهر في الشاشة. */
+    public function exportReview(Request $request)
+    {
+        $format = $request->input('format', 'xlsx');
+        $query = PurchaseImportItem::with('batch')->needsReviewOrdered();
+        if ($request->filled('batch_id')) {
+            $query->where('batch_id', $request->batch_id);
+        }
+        $items = $query->get();
+
+        $header = ['#', 'رقم الفاتورة', 'المورد', 'الرقم الضريبي', 'التاريخ', 'الإجمالي', 'الثقة %', 'الملف'];
+        $rows = [];
+        foreach ($items as $i => $it) {
+            $d = (array) ($it->extracted_json['data'] ?? []);
+            $rows[] = [
+                $i + 1,
+                $d['invoice_no'] ?? '—',
+                $d['supplier_name'] ?? '—',
+                $d['tax_number'] ?? '—',
+                $d['invoice_date'] ?? '—',
+                $d['total'] ?? '—',
+                $it->confidence !== null ? round($it->confidence * 100) : '—',
+                $it->batch->original_filename ?? '—',
+            ];
+        }
+        $summary = [['التقرير', 'الفواتير بانتظار المراجعة'], ['العدد', count($rows)], ['التاريخ', now()->toDateString()]];
+
+        return $this->exportData('الفواتير_بانتظار_المراجعة', $summary, $rows, $header, $format);
+    }
+
     /** اعتماد عنصر وإنشاء سجل مشتريات. */
     public function approve(Request $request, PurchaseImportItem $item)
     {

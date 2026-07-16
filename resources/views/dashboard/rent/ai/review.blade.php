@@ -17,12 +17,13 @@
     <div id="toaster" style="position:fixed;top:80px;left:20px;z-index:2000;min-width:300px"></div>
 
     <div class="card">
-        <div class="card-header d-flex align-items-center justify-content-between">
+        <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-3">
             <h3 class="card-title">العقود بانتظار المراجعة (<span id="reviewCount">{{ $items->total() }}</span>)</h3>
-            <button type="button" id="approveAllBtn" class="btn btn-success"
-                    data-url="{{ route('dashboard.rent.ai.approve_all') }}">
-                اعتماد الكل ✓
-            </button>
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="{{ route('dashboard.rent.ai.review.export', array_merge(request()->only('batch_id'), ['format' => 'xlsx'])) }}" class="btn btn-light-success btn-sm"><i class="fas fa-file-excel me-1"></i>Excel</a>
+                <a href="{{ route('dashboard.rent.ai.review.export', array_merge(request()->only('batch_id'), ['format' => 'pdf'])) }}" class="btn btn-light-danger btn-sm"><i class="fas fa-file-pdf me-1"></i>PDF</a>
+                <button type="button" id="approveAllBtn" class="btn btn-success" data-url="{{ route('dashboard.rent.ai.approve_all') }}">اعتماد الكل ✓</button>
+            </div>
         </div>
         <div class="card-body">
             <div class="alert alert-light-primary py-2">اختر المحل لكل عقد، ثم اضغط «اعتماد» للصف أو «اعتماد الكل». للتعديل والاطلاع على الصورة اضغط «مراجعة/تعديل».</div>

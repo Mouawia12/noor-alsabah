@@ -28,6 +28,8 @@
                         <option value="{{ $shop->shop_id }}" data-code="{{ $shop->shop_code }}">{{ ($shop->shop_code ? '('.$shop->shop_code.') ' : '').$shop->shop_name }}</option>
                     @endforeach
                 </select>
+                <a href="{{ route('dashboard.purchase.ai.review.export', array_merge(request()->only('batch_id'), ['format' => 'xlsx'])) }}" class="btn btn-light-success btn-sm"><i class="fas fa-file-excel me-1"></i>Excel</a>
+                <a href="{{ route('dashboard.purchase.ai.review.export', array_merge(request()->only('batch_id'), ['format' => 'pdf'])) }}" class="btn btn-light-danger btn-sm"><i class="fas fa-file-pdf me-1"></i>PDF</a>
                 <button type="button" id="approveAllBtn" class="btn btn-success" data-url="{{ route('dashboard.purchase.ai.approve_all') }}">ترحيل الفواتير ✓</button>
                 <button type="button" id="deleteSelectedBtn" class="btn btn-light-danger" data-url="{{ route('dashboard.purchase.ai.destroy_many') }}">حذف المحدد 🗑</button>
             </div>

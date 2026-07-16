@@ -199,6 +199,36 @@ class RentAiController extends Controller
         return $this->exportData('تقرير_الإيجارات', $rows, [], [], $format);
     }
 
+    /** تصدير قائمة العقود بانتظار المراجعة (PDF/Excel) — نفس ما يظهر في الشاشة. */
+    public function exportReview(Request $request)
+    {
+        $format = $request->input('format', 'xlsx');
+        $query = RentContractImportItem::with('batch')->needsReviewOrdered();
+        if ($request->filled('batch_id')) {
+            $query->where('batch_id', $request->batch_id);
+        }
+        $items = $query->get();
+
+        $header = ['#', 'رقم العقد', 'المؤجر', 'المستأجر', 'القيمة', 'عدد الدفعات', 'الثقة %', 'الملف'];
+        $rows = [];
+        foreach ($items as $i => $it) {
+            $d = (array) ($it->extracted_json['data'] ?? []);
+            $rows[] = [
+                $i + 1,
+                $d['contract_no'] ?? '—',
+                $d['landlord'] ?? '—',
+                $d['tenant'] ?? '—',
+                $d['rent_value'] ?? '—',
+                $d['payments_count'] ?? '—',
+                $it->confidence !== null ? round($it->confidence * 100) : '—',
+                $it->batch->original_filename ?? '—',
+            ];
+        }
+        $summary = [['التقرير', 'العقود بانتظار المراجعة'], ['العدد', count($rows)], ['التاريخ', now()->toDateString()]];
+
+        return $this->exportData('العقود_بانتظار_المراجعة', $summary, $rows, $header, $format);
+    }
+
     public function approve(Request $request, RentContractImportItem $item)
     {
         $request->validate(['shop_id' => ['required']], ['shop_id.required' => 'يجب اختيار المحل/العقار المرتبط بالعقد.']);
