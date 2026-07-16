@@ -1,7 +1,7 @@
 @php $threshold = (float) config('ai.confidence_threshold', 0.8); @endphp
 <div class="table-responsive">
     <table class="table table-row-bordered table-hover align-middle">
-        <thead><tr class="fw-bold text-muted bg-light">
+        <thead><tr class="fw-bold text-gray-800 bg-light">
             <th>#</th><th>الملف/الصفحات</th><th>رقم العقد</th><th>المؤجر</th><th>القيمة</th><th>الثقة</th>
             <th style="min-width:160px">المحل / العقار <span class="text-danger">*</span></th><th>الإجراء</th>
         </tr></thead>

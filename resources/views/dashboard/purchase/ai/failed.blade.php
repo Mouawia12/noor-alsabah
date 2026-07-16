@@ -18,7 +18,7 @@
             <div class="card-header"><h3 class="card-title text-danger">دفعات فشلت بالكامل</h3></div>
             <div class="card-body table-responsive">
                 <table class="table table-row-bordered align-middle">
-                    <thead><tr class="fw-bold text-muted"><th>الملف</th><th>السبب</th><th></th></tr></thead>
+                    <thead><tr class="fw-bold text-gray-800"><th>الملف</th><th>السبب</th><th></th></tr></thead>
                     <tbody>
                         @foreach ($failedBatches as $b)
                             <tr>
@@ -41,7 +41,7 @@
         <div class="card-header"><h3 class="card-title text-danger">الفواتير المرفوضة (غير المقبولة)</h3></div>
         <div class="card-body table-responsive">
             <table class="table table-row-bordered align-middle">
-                <thead><tr class="fw-bold text-muted"><th>الملف</th><th>الصفحات</th><th>السبب</th><th></th></tr></thead>
+                <thead><tr class="fw-bold text-gray-800"><th>الملف</th><th>الصفحات</th><th>السبب</th><th></th></tr></thead>
                 <tbody>
                     @forelse ($items as $it)
                         <tr>

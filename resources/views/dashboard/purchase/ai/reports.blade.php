@@ -45,7 +45,7 @@
                 <div class="card-header"><h3 class="card-title">أكثر الموردين تكراراً</h3></div>
                 <div class="card-body table-responsive">
                     <table class="table table-row-bordered align-middle">
-                        <thead><tr class="fw-bold text-muted"><th>المورد</th><th>عدد الفواتير</th><th>الإجمالي</th></tr></thead>
+                        <thead><tr class="fw-bold text-gray-800"><th>المورد</th><th>عدد الفواتير</th><th>الإجمالي</th></tr></thead>
                         <tbody>
                             @forelse ($topSuppliers as $s)
                                 <tr><td>{{ $s->name }}</td><td>{{ $s->c }}</td><td>{{ number_format((float) $s->total, 2) }}</td></tr>
