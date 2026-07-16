@@ -7,7 +7,11 @@
 <div class="card mb-5">
     <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-3">
         <h3 class="card-title">التقرير المالي — {{ $shop->shop_name ?? '' }}</h3>
-        <a href="{{ route('dashboard.shop.payments', $shop->shop_id) }}" class="btn btn-sm btn-light-primary">متابعة السداد ↩</a>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ route('dashboard.shop.financial_report.export', array_merge(['shop' => $shop->shop_id], request()->only(['contract_id', 'from', 'to']), ['format' => 'xlsx'])) }}" class="btn btn-sm btn-light-success"><i class="fas fa-file-excel me-1"></i>Excel</a>
+            <a href="{{ route('dashboard.shop.financial_report.export', array_merge(['shop' => $shop->shop_id], request()->only(['contract_id', 'from', 'to']), ['format' => 'pdf'])) }}" class="btn btn-sm btn-light-danger"><i class="fas fa-file-pdf me-1"></i>PDF</a>
+            <a href="{{ route('dashboard.shop.payments', $shop->shop_id) }}" class="btn btn-sm btn-light-primary">متابعة السداد ↩</a>
+        </div>
     </div>
     <div class="card-body">
         <form method="GET" class="row g-3 mb-5 align-items-end">

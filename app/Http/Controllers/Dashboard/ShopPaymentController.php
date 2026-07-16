@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Log;
  */
 class ShopPaymentController extends Controller
 {
+    use \App\Http\Controllers\Dashboard\Concerns\ExportsReports;
+
     public function __construct(protected PaymentRecordingService $recorder) {}
 
     /** صفحة سداد المحل: العقود + جداول الدفعات (سابقة/مستحقة/قادمة) + السندات + الملخص. */
@@ -157,6 +159,65 @@ class ShopPaymentController extends Controller
             'ledger'     => $ledger,
             'filters'    => $request->only(['contract_id', 'from', 'to']),
         ]);
+    }
+
+    /** تصدير التقرير المالي للمحل (PDF/Excel): الملخّص + تفصيل الدفعات. */
+    public function exportReport(Request $request, int $shop)
+    {
+        $shopRow = DB::table('shop')->where('shop_id', $shop)->first();
+        abort_if(! $shopRow, 404, 'المحل غير موجود.');
+        $format = $request->input('format', 'xlsx');
+        $today = Carbon::today();
+
+        $q = ShopRentpay::where('shop_rentpay.shop_id', $shop);
+        if ($request->filled('contract_id')) {
+            $q->where('shop_rent_id', (int) $request->contract_id);
+        }
+        if ($request->filled('from')) {
+            $q->whereDate('rentpay_dt', '>=', $request->from);
+        }
+        if ($request->filled('to')) {
+            $q->whereDate('rentpay_dt', '<=', $request->to);
+        }
+        $payments = $q->orderBy('rentpay_dt')->get();
+
+        $contractNo = Shop_rent::where('shop_id', $shop)->pluck('contract_no', 'shop_rent_id');
+
+        $total = $paid = $overdue = 0.0;
+        $overdueCount = 0;
+        $header = ['#', 'العقد', 'تاريخ الاستحقاق', 'القيمة', 'المدفوع', 'المتبقّي', 'الحالة'];
+        $rows = [];
+        foreach ($payments as $i => $p) {
+            $total += (float) $p->rentpay_price;
+            $paid  += (float) $p->paid_amount;
+            $isOver = $p->status !== ShopRentpay::STATUS_PAID && $p->isOverdue($today);
+            if ($isOver) {
+                $overdue += $p->remaining;
+                $overdueCount++;
+            }
+            $status = $isOver ? 'متأخّر' : (ShopRentpay::STATUS_LABELS[$p->status] ?? $p->status);
+            $rows[] = [
+                $i + 1,
+                $contractNo[$p->shop_rent_id] ?? '—',
+                $p->rentpay_dt,
+                number_format((float) $p->rentpay_price, 2),
+                number_format((float) $p->paid_amount, 2),
+                number_format((float) $p->remaining, 2),
+                $status,
+            ];
+        }
+
+        $summary = [
+            ['التقرير', 'التقرير المالي — ' . ($shopRow->shop_name ?? '')],
+            ['إجمالي المستحق', number_format(round($total, 2), 2)],
+            ['إجمالي المسدَّد', number_format(round($paid, 2), 2)],
+            ['المتبقّي', number_format(round(max(0.0, $total - $paid), 2), 2)],
+            ['المتأخّر', number_format(round($overdue, 2), 2)],
+            ['عدد الدفعات المتأخّرة', $overdueCount],
+            ['عدد الدفعات', $payments->count()],
+        ];
+
+        return $this->exportData('التقرير_المالي_' . ($shopRow->shop_name ?? $shop), $summary, $rows, $header, $format);
     }
 
     protected function fail(Request $request, string $msg, int $code)

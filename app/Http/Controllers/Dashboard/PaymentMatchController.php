@@ -20,10 +20,41 @@ use Illuminate\Support\Facades\Log;
  */
 class PaymentMatchController extends Controller
 {
+    use \App\Http\Controllers\Dashboard\Concerns\ExportsReports;
+
     public function __construct(
         protected PaymentMatchingService $matcher,
         protected PaymentRecordingService $recorder,
     ) {}
+
+    /** تصدير قائمة مطابقة الدفعات بانتظار المراجعة (PDF/Excel). */
+    public function export(Request $request)
+    {
+        $format = $request->input('format', 'xlsx');
+        $items = RentPaymentMatchItem::needsReviewOrdered()->get();
+
+        $statusAr = [
+            'matched' => 'مطابَقة', 'orphan' => 'غير مرتبطة', 'underpaid' => 'مبلغ ناقص',
+            'overpaid' => 'مبلغ زائد', 'duplicate' => 'مكرّرة',
+        ];
+        $header = ['#', 'رقم العقد', 'المستأجر', 'المبلغ', 'تاريخ الاستحقاق', 'حالة المطابقة', 'الثقة %', 'السبب'];
+        $rows = [];
+        foreach ($items as $i => $it) {
+            $rows[] = [
+                $i + 1,
+                $it->contract_no ?? '—',
+                $it->tenant_name ?? '—',
+                $it->amount !== null ? number_format((float) $it->amount, 2) : '—',
+                $it->due_date ?? '—',
+                $statusAr[$it->match_status] ?? $it->match_status,
+                $it->confidence !== null ? round($it->confidence * 100) : '—',
+                $it->match_reason ?? '—',
+            ];
+        }
+        $summary = [['التقرير', 'مطابقة الدفعات بانتظار المراجعة'], ['العدد', count($rows)], ['التاريخ', now()->toDateString()]];
+
+        return $this->exportData('مطابقة_الدفعات', $summary, $rows, $header, $format);
+    }
 
     /** قائمة الدفعات الواردة بانتظار المراجعة/التأكيد. */
     public function review(Request $request)

@@ -24,7 +24,13 @@
 </div>
 
 <div class="card">
-    <div class="card-header"><h3 class="card-title">دفعات بانتظار المراجعة (<span id="pmCount">{{ $items->total() }}</span>)</h3></div>
+    <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <h3 class="card-title">دفعات بانتظار المراجعة (<span id="pmCount">{{ $items->total() }}</span>)</h3>
+        <div class="d-flex gap-2">
+            <a href="{{ route('dashboard.rent.payment_match.export', ['format' => 'xlsx']) }}" class="btn btn-sm btn-light-success"><i class="fas fa-file-excel me-1"></i>Excel</a>
+            <a href="{{ route('dashboard.rent.payment_match.export', ['format' => 'pdf']) }}" class="btn btn-sm btn-light-danger"><i class="fas fa-file-pdf me-1"></i>PDF</a>
+        </div>
+    </div>
     <div class="card-body">
         <div id="pmList">@include('dashboard.rent.payment_match._list', ['items' => $items])</div>
     </div>
