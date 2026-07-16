@@ -2,6 +2,16 @@
 @section('module', 'نظام الحوسبة')
 @section('sub', 'الإيجارات')
 @section('title', $page_title)
+
+@section('styles')
+<style>
+    .ai-review-tbl thead th{ background:#eef3f8 !important; color:#181c32 !important; font-weight:700 !important;
+        border-bottom:2px solid #d6e0ea !important; white-space:nowrap; padding:.85rem .75rem; }
+    .ai-review-tbl tbody td{ color:#2b2f42; vertical-align:middle; }
+    .ai-review-tbl tbody tr:hover{ background:#f7fafd; }
+</style>
+@endsection
+
 @section('content')
 
     <div id="toaster" style="position:fixed;top:80px;left:20px;z-index:2000;min-width:300px"></div>

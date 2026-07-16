@@ -24,7 +24,7 @@
     $dupKeys = $existingKeys->merge($itemKeys->duplicates()->values())->unique()->values()->all();
 @endphp
 <div class="table-responsive">
-    <table class="table table-row-bordered table-hover align-middle">
+    <table class="table table-row-bordered table-hover align-middle ai-review-tbl">
         <thead><tr class="fw-bold text-gray-800 bg-light">
             <th style="width:32px"><input type="checkbox" class="form-check-input" id="checkAll" title="تحديد الكل"></th>
             <th>#</th><th>الملف/الصفحات</th><th>رقم الفاتورة</th><th>المورد</th><th>الإجمالي</th><th>الثقة</th><th>الإجراء</th>
