@@ -8,6 +8,7 @@ use App\Models\PurchaseImportBatch;
 use App\Models\PurchaseImportItem;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -65,24 +66,15 @@ class PurchaseImportService
         $origExtracted = (array) ($item->extracted_json['data'] ?? $item->extracted_json ?? []);
         $data = array_merge($origExtracted, $overrides);
 
-        // منع تكرار الفاتورة عند الحفظ: رقم فاتورة موجود مسبقاً في المشتريات → رفض صريح
-        $invoiceNo = trim((string) ($data['invoice_no'] ?? ''));
-        if ($invoiceNo !== '' && DB::table('purchase')->where('purchase_no', $invoiceNo)->exists()) {
-            throw new DuplicateInvoiceException(
-                "فاتورة مكررة: رقم الفاتورة «{$invoiceNo}» مسجَّل مسبقاً — لا يمكن حفظها مرتين."
-            );
-        }
-
-        // التعلّم المستمر: سجّل أي تصحيحات قام بها المستخدم
-        app(CorrectionService::class)->record('purchase', $origExtracted, $data, $data['tax_number'] ?? null, $userId);
-
-        // تحديد المورد: معرّف صريح، أو إنشاء جديد عند الطلب
+        // تحديد المورد: معرّف صريح، أو إنشاء جديد عند الطلب.
+        // (يسبق فحص التكرار لأن الفحص يعتمد على المورّد لا على رقم الفاتورة وحده.)
         $supplierId = $overrides['supplier_id'] ?? null;
         if (! $supplierId && ! empty($overrides['new_supplier_name'])) {
             $supplierId = app(SupplierMatchingService::class)
                 ->create($overrides['new_supplier_name'], $data['tax_number'] ?? null, $userId)
                 ->supplier_id;
         }
+        $supplierId = ($supplierId !== null && $supplierId !== '') ? (int) $supplierId : null;
 
         // اسم المورد المعروض في شاشة مصاريف شراء المحلات (عمود purchase_respon)
         // نأخذ الاسم كما استُخرج/عُدِّل ليظهر بعد الترحيل (كان يبقى فارغاً سابقاً)
@@ -91,37 +83,76 @@ class PurchaseImportService
         // الفرع/المحل الذي تُرحَّل إليه الفاتورة (اختيار المستخدم من قائمة المحلات)
         $shopId = isset($overrides['shop_id']) && $overrides['shop_id'] !== '' ? (int) $overrides['shop_id'] : null;
 
-        $purchaseId = DB::table('purchase')->insertGetId([
-            'purchase_no'       => $data['invoice_no'] ?? null,
-            'purchase_dt'       => $this->date($data['invoice_date'] ?? null),
-            'tax_number'        => $data['tax_number'] ?? null,
-            'currency'          => $data['currency'] ?? null,
-            'amount_before_tax' => $this->num($data['amount_before_tax'] ?? null),
-            'tax_amount'        => $this->num($data['tax_amount'] ?? null),
-            'purchase_price'    => $this->num($data['total'] ?? null),
-            'supplier_id'       => $supplierId,
-            'purchase_respon'   => $supplierName,
-            'shop_id'           => $shopId,
-            'purchasefile'      => $item->batch->file_path ?? null,
-            'note'              => $data['note'] ?? null,
-            'import_item_id'    => $item->id,
-            'created_at'        => Carbon::now(),
-            'create_user'       => $userId,
-        ]);
+        // منع تكرار الفاتورة عند الحفظ — فحص مركّب دقيق:
+        // تُعتبر الفاتورة مكرّرة فقط عند تطابق (رقم الفاتورة + المورّد)، ويُضاف الفرع كقيد
+        // إضافي إذا كان محدَّداً. إن غاب رقم الفاتورة أو المورّد → لا يُجرى الفحص إطلاقاً
+        // (لا يُعامَل نقص الحقول تطابقاً، ولا يُعتمد رقم الفاتورة وحده كما كان يحدث سابقاً).
+        $invoiceNo = trim((string) ($data['invoice_no'] ?? ''));
+        if ($invoiceNo !== '' && $supplierId !== null) {
+            $dupQuery = DB::table('purchase')
+                ->where('purchase_no', $invoiceNo)
+                ->where('supplier_id', $supplierId);
+            if ($shopId !== null) {
+                $dupQuery->where('shop_id', $shopId);
+            }
+            $existing = $dupQuery->first(['purchase_id']);
+            if ($existing) {
+                $branchPart = $shopId !== null ? ' بنفس الفرع' : '';
+                throw new DuplicateInvoiceException(
+                    "فاتورة مكررة: الفاتورة رقم «{$invoiceNo}» لنفس المورّد{$branchPart} مسجَّلة مسبقاً "
+                    . "(سجل المشتريات رقم {$existing->purchase_id}) — لا يمكن حفظها مرتين."
+                );
+            }
+        }
 
-        $item->update([
-            'status'      => PurchaseImportItem::STATUS_APPROVED,
-            'purchase_id' => $purchaseId,
-            'reviewed_by' => $userId,
-            'reviewed_at' => Carbon::now(),
-        ]);
+        // التعلّم المستمر (best-effort): تسجيل تصحيحات المستخدم يجب ألا يُفشل الترحيل إن تعذّر (مثل عطل الكاش).
+        try {
+            app(CorrectionService::class)->record('purchase', $origExtracted, $data, $data['tax_number'] ?? null, $userId);
+        } catch (\Throwable $e) {
+            Log::warning('فشل تسجيل تصحيح التعلّم المستمر عند الترحيل: ' . $e->getMessage());
+        }
 
-        AiAuditLog::record('purchase_item', $item->id, 'approved', [
-            'purchase_id' => $purchaseId,
-            'overrides'   => $overrides,
-        ], $userId);
+        // الحفظ ذرّياً: إدراج سجل المشتريات + تحديث حالة العنصر + سجل التدقيق ضمن معاملة واحدة.
+        $purchaseId = DB::transaction(function () use ($item, $data, $supplierId, $supplierName, $shopId, $userId, $overrides) {
+            $purchaseId = DB::table('purchase')->insertGetId([
+                'purchase_no'       => $data['invoice_no'] ?? null,
+                'purchase_dt'       => $this->date($data['invoice_date'] ?? null),
+                'tax_number'        => $data['tax_number'] ?? null,
+                'currency'          => $data['currency'] ?? null,
+                'amount_before_tax' => $this->num($data['amount_before_tax'] ?? null),
+                'tax_amount'        => $this->num($data['tax_amount'] ?? null),
+                'purchase_price'    => $this->num($data['total'] ?? null),
+                'supplier_id'       => $supplierId,
+                'purchase_respon'   => $supplierName,
+                'shop_id'           => $shopId,
+                'purchasefile'      => $item->batch->file_path ?? null,
+                'note'              => $data['note'] ?? null,
+                'import_item_id'    => $item->id,
+                'created_at'        => Carbon::now(),
+                'create_user'       => $userId,
+            ]);
 
-        \App\Support\AiDashboardStats::forget(); // تحديث فوري لمؤشّرات اللوحة
+            $item->update([
+                'status'      => PurchaseImportItem::STATUS_APPROVED,
+                'purchase_id' => $purchaseId,
+                'reviewed_by' => $userId,
+                'reviewed_at' => Carbon::now(),
+            ]);
+
+            AiAuditLog::record('purchase_item', $item->id, 'approved', [
+                'purchase_id' => $purchaseId,
+                'overrides'   => $overrides,
+            ], $userId);
+
+            return $purchaseId;
+        });
+
+        // تحديث مؤشّرات اللوحة (best-effort): فشل الكاش لا يُبطل ترحيلاً نجح فعلاً.
+        try {
+            \App\Support\AiDashboardStats::forget();
+        } catch (\Throwable $e) {
+            Log::warning('فشل تحديث مؤشّرات لوحة الذكاء الاصطناعي بعد الترحيل: ' . $e->getMessage());
+        }
 
         return $purchaseId;
     }
@@ -136,7 +167,12 @@ class PurchaseImportService
         ]);
 
         AiAuditLog::record('purchase_item', $item->id, 'rejected', ['reason' => $reason], $userId);
-        \App\Support\AiDashboardStats::forget();
+
+        try {
+            \App\Support\AiDashboardStats::forget();
+        } catch (\Throwable $e) {
+            Log::warning('فشل تحديث مؤشّرات لوحة الذكاء الاصطناعي بعد الرفض: ' . $e->getMessage());
+        }
     }
 
     protected function num($v): ?float

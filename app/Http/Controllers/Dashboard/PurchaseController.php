@@ -140,7 +140,23 @@ class PurchaseController extends Controller
         if (Perm::get_function_access(58)) {
             $id = $request->id;
             try {
-                $delete = DB::delete('delete from purchase where purchase_id = ?', [$id]);
+                // عند حذف فاتورة مُرحّلة نُعيد ضبط صف الاستيراد المرتبط حتى يعود لقائمة
+                // «بانتظار الترحيل» ويصبح قابلاً للحذف/إعادة الترحيل (وإلا يبقى صفاً شبحاً مخفياً).
+                $purchase = DB::table('purchase')->where('purchase_id', $id)->first();
+                $delete = DB::transaction(function () use ($id, $purchase) {
+                    $deleted = DB::delete('delete from purchase where purchase_id = ?', [$id]);
+                    if ($deleted && $purchase && !empty($purchase->import_item_id)) {
+                        DB::table('purchase_import_item')
+                            ->where('id', $purchase->import_item_id)
+                            ->update([
+                                'status'      => \App\Models\PurchaseImportItem::STATUS_NEEDS_REVIEW,
+                                'purchase_id' => null,
+                                'reviewed_by' => null,
+                                'reviewed_at' => null,
+                            ]);
+                    }
+                    return $deleted;
+                });
                 if ($delete) {
                     $result['status'] = true;
                     $result['message'] = 'تم';

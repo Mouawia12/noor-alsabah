@@ -34,16 +34,17 @@ class PaymentScheduleService
             return $rows;
         }
 
-        // 2) احتساب شهري من تاريخ البداية حسب عدد الدفعات
+        // 2) احتساب من تاريخ البداية حسب عدد الدفعات ودورة السداد
         $start = $this->date($data['start_date'] ?? null);
         if ($start && $count > 0) {
             $amounts = $this->amounts($perPay, $rentValue, $count);
+            $step = $this->cycleMonths($data['payment_cycle'] ?? null); // عدد الأشهر بين كل دفعتين
             $base = Carbon::parse($start);
             $rows = [];
             for ($i = 0; $i < $count; $i++) {
                 $rows[] = [
                     // addMonthsNoOverflow: بداية 31 يناير لا تتجاوز إلى مارس
-                    'rentpay_dt'    => $base->copy()->addMonthsNoOverflow($i)->format('Y-m-d'),
+                    'rentpay_dt'    => $base->copy()->addMonthsNoOverflow($i * $step)->format('Y-m-d'),
                     'rentpay_price' => $amounts[$i],
                 ];
             }
@@ -52,6 +53,20 @@ class PaymentScheduleService
 
         // 3) لا معلومات كافية — تُترك للإدخال اليدوي
         return [];
+    }
+
+    /**
+     * عدد الأشهر بين دفعتين حسب دورة السداد.
+     * شهري=1، ربع سنوي=3، نصف سنوي=6، سنوي=12. الافتراضي شهري (السلوك السابق).
+     */
+    protected function cycleMonths(?string $cycle): int
+    {
+        return match ($cycle) {
+            'quarterly', 'ربع سنوي', 'ربعي' => 3,
+            'semi', 'semiannual', 'نصف سنوي', 'نصفي' => 6,
+            'annual', 'yearly', 'سنوي' => 12,
+            default => 1, // monthly / شهري / غير محدَّد
+        };
     }
 
     /**

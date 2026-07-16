@@ -1,39 +1,54 @@
 @php
     $threshold = (float) config('ai.confidence_threshold', 0.8);
-    // أرقام الفواتير المكررة: موجودة مسبقاً في المشتريات، أو مكررة داخل نفس القائمة (نفس الملف)
-    $nos = collect($items->items())
-        ->map(fn ($it) => trim((string) (($it->extracted_json['data']['invoice_no'] ?? ''))))
-        ->filter();
-    $existingNos = [];
-    if ($nos->isNotEmpty() && \Illuminate\Support\Facades\Schema::hasTable('purchase')) {
-        $existingNos = \Illuminate\Support\Facades\DB::table('purchase')
-            ->whereIn('purchase_no', $nos->unique()->values()->all())->pluck('purchase_no')->all();
+    // كشف التكرار للعرض يطابق منطق الترحيل تماماً: (رقم الفاتورة + المورّد) — لا رقم الفاتورة وحده.
+    // معرّف مورّد العنصر = المورّد المطابق فقط (المورّد الجديد لا يمكن أن يكون تكراراً لسجل قائم).
+    $keyOf = function ($it) {
+        $inv = trim((string) ($it->extracted_json['data']['invoice_no'] ?? ''));
+        $s = $it->extracted_json['supplier'] ?? [];
+        $sid = ! empty($s['matched']) ? (int) ($s['supplier_id'] ?? 0) : null;
+        return ($inv !== '' && $sid) ? $inv . '|' . $sid : null;
+    };
+    $itemKeys = collect($items->items())->map($keyOf)->filter()->values();
+    // مفاتيح (رقم+مورّد) موجودة مسبقاً في جدول المشتريات
+    $existingKeys = collect();
+    $invNos = collect($items->items())
+        ->map(fn ($it) => trim((string) ($it->extracted_json['data']['invoice_no'] ?? '')))
+        ->filter()->unique()->values();
+    if ($invNos->isNotEmpty() && \Illuminate\Support\Facades\Schema::hasTable('purchase')) {
+        $existingKeys = \Illuminate\Support\Facades\DB::table('purchase')
+            ->whereIn('purchase_no', $invNos->all())->whereNotNull('supplier_id')
+            ->get(['purchase_no', 'supplier_id'])
+            ->map(fn ($r) => $r->purchase_no . '|' . ((int) $r->supplier_id));
     }
-    $dupNos = array_values(array_unique(array_merge($nos->duplicates()->values()->all(), $existingNos)));
+    // مكرّر = مفتاحه موجود مسبقاً في المشتريات، أو متكرّر داخل نفس القائمة (نفس الرقم والمورّد)
+    $dupKeys = $existingKeys->merge($itemKeys->duplicates()->values())->unique()->values()->all();
 @endphp
 <div class="table-responsive">
     <table class="table table-row-bordered table-hover align-middle">
         <thead><tr class="fw-bold text-muted bg-light">
+            <th style="width:32px"><input type="checkbox" class="form-check-input" id="checkAll" title="تحديد الكل"></th>
             <th>#</th><th>الملف/الصفحات</th><th>رقم الفاتورة</th><th>المورد</th><th>الإجمالي</th><th>الثقة</th><th>الإجراء</th>
         </tr></thead>
         <tbody>
             @forelse ($items as $i => $item)
                 @php $d = $item->extracted_json['data'] ?? []; $conf = $item->confidence; $low = $conf !== null && $conf < $threshold;
-                    $isDup = $item->is_duplicate || in_array(trim((string) ($d['invoice_no'] ?? '')), $dupNos, true); @endphp
+                    $k = $keyOf($item); $isDup = $k !== null && in_array($k, $dupKeys, true); @endphp
                 <tr data-item="{{ $item->id }}">
+                    <td><input type="checkbox" class="form-check-input js-row-check" value="{{ $item->id }}"></td>
                     <td>{{ $items->firstItem() + $i }}</td>
                     <td>{{ \Illuminate\Support\Str::limit($item->batch->original_filename ?? '—', 18) }} <span class="text-muted fs-8">(ص {{ $item->page_from }}–{{ $item->page_to }})</span></td>
                     <td class="fw-bold">{{ $d['invoice_no'] ?? '—' }}</td>
                     <td>{{ \Illuminate\Support\Str::limit($d['supplier_name'] ?? '—', 16) }}</td>
                     <td>{{ $d['total'] ?? '—' }}</td>
-                    <td>@if ($conf !== null)<span class="badge badge-light-{{ $low ? 'danger' : 'success' }}">{{ round($conf * 100) }}%</span>@endif @if ($isDup)<span class="badge badge-danger" title="رقم الفاتورة مكرّر — لن يُقبل ترحيله أكثر من مرة">فاتورة مكرّرة</span>@endif</td>
+                    <td>@if ($conf !== null)<span class="badge badge-light-{{ $low ? 'danger' : 'success' }}">{{ round($conf * 100) }}%</span>@endif @if ($isDup)<span class="badge badge-danger" title="فاتورة بنفس الرقم والمورّد مسجّلة مسبقاً — لن تُقبل مرتين">فاتورة مكرّرة</span>@endif</td>
                     <td class="text-nowrap">
                         <button type="button" class="btn btn-sm btn-success js-approve" data-url="{{ route('dashboard.purchase.ai.approve', $item->id) }}">ترحيل</button>
                         <button type="button" class="btn btn-sm btn-light-primary" data-bs-toggle="modal" data-bs-target="#purModal{{ $item->id }}">مراجعة/تعديل</button>
+                        <button type="button" class="btn btn-sm btn-light-danger js-delete" data-url="{{ route('dashboard.purchase.ai.destroy', $item->id) }}">حذف</button>
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="text-center text-muted py-5">لا توجد فواتير بانتظار المراجعة.</td></tr>
+                <tr><td colspan="8" class="text-center text-muted py-5">لا توجد فواتير بانتظار المراجعة.</td></tr>
             @endforelse
         </tbody>
     </table>

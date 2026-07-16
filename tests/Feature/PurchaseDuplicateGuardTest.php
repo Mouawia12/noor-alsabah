@@ -9,8 +9,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * يغطّي منع تكرار الفاتورة عند الحفظ (البند و/4).
- * جدول purchase قادم من Oracle ولا هجرة له، فننشئ نسخة مبسّطة له في SQLite.
+ * منع تكرار الفاتورة عند الترحيل — القاعدة الجديدة: تُعتبر مكرّرة فقط عند تطابق
+ * (رقم الفاتورة + المورّد)، مع الفرع كقيد اختياري. رقم الفاتورة وحده لا يكفي
+ * (كان يسبب رفضاً كاذباً لأغلب الفواتير). جدول purchase مستورد من MySQL ولا هجرة
+ * له في الاختبار، فننشئ نسخة مبسّطة له في SQLite.
  */
 beforeEach(function () {
     Schema::dropIfExists('purchase');
@@ -53,23 +55,78 @@ function dupItem(int $batchId, string $invoiceNo): PurchaseImportItem
     ]);
 }
 
-it('rejects an invoice whose number already exists in purchases', function () {
-    DB::table('purchase')->insert(['purchase_no' => 'INV-DUP-1', 'purchase_price' => 100]);
+it('rejects a real duplicate: same invoice number AND same supplier', function () {
+    DB::table('purchase')->insert(['purchase_no' => 'INV-DUP-1', 'supplier_id' => 7, 'purchase_price' => 100]);
 
     $item = dupItem(dupBatch()->id, 'INV-DUP-1');
 
-    expect(fn () => app(PurchaseImportService::class)->approveItem($item))
+    expect(fn () => app(PurchaseImportService::class)->approveItem($item, ['supplier_id' => 7]))
         ->toThrow(DuplicateInvoiceException::class);
 
-    // لم تُنشأ فاتورة جديدة ولم يتغيّر الحالة إلى معتمدة
+    // لم تُنشأ فاتورة جديدة ولم تتغيّر الحالة إلى معتمدة
     expect(DB::table('purchase')->where('purchase_no', 'INV-DUP-1')->count())->toBe(1);
     expect($item->fresh()->status)->toBe('needs_review');
 });
 
-it('saves an invoice whose number is new', function () {
+it('ALLOWS the same invoice number for a DIFFERENT supplier (the false-positive fix)', function () {
+    DB::table('purchase')->insert(['purchase_no' => 'INV-DUP-1', 'supplier_id' => 7, 'purchase_price' => 100]);
+
+    $item = dupItem(dupBatch()->id, 'INV-DUP-1');
+
+    // نفس رقم الفاتورة لكن مورّد مختلف → يجب أن يُرحَّل بلا استثناء (كان يُرفض سابقاً)
+    $id = app(PurchaseImportService::class)->approveItem($item, ['supplier_id' => 8]);
+
+    expect($id)->toBeGreaterThan(0);
+    expect(DB::table('purchase')->where('purchase_no', 'INV-DUP-1')->count())->toBe(2);
+    expect($item->fresh()->status)->toBe('approved');
+});
+
+it('does NOT block when the supplier cannot be determined (no single-field rejection)', function () {
+    DB::table('purchase')->insert(['purchase_no' => 'INV-DUP-1', 'supplier_id' => 7, 'purchase_price' => 100]);
+
+    $item = dupItem(dupBatch()->id, 'INV-DUP-1');
+
+    // بلا مورّد محدَّد → لا يُجرى فحص التكرار، فيُرحَّل
+    $id = app(PurchaseImportService::class)->approveItem($item);
+
+    expect($id)->toBeGreaterThan(0);
+    expect($item->fresh()->status)->toBe('approved');
+});
+
+it('treats a different branch as NOT a duplicate, and the same branch as a duplicate', function () {
+    DB::table('purchase')->insert(['purchase_no' => 'INV-B', 'supplier_id' => 5, 'shop_id' => 1, 'purchase_price' => 50]);
+
+    // نفس الرقم + نفس المورّد لكن فرع مختلف → يُرحَّل
+    $itemOther = dupItem(dupBatch()->id, 'INV-B');
+    $id = app(PurchaseImportService::class)->approveItem($itemOther, ['supplier_id' => 5, 'shop_id' => 2]);
+    expect($id)->toBeGreaterThan(0);
+
+    // نفس الرقم + نفس المورّد + نفس الفرع → مكرّر
+    $itemSame = dupItem(dupBatch()->id, 'INV-B');
+    expect(fn () => app(PurchaseImportService::class)->approveItem($itemSame, ['supplier_id' => 5, 'shop_id' => 1]))
+        ->toThrow(DuplicateInvoiceException::class);
+});
+
+it('includes the invoice number and existing record id in the duplicate message', function () {
+    $existingId = DB::table('purchase')->insertGetId(['purchase_no' => 'INV-MSG', 'supplier_id' => 3, 'purchase_price' => 10]);
+
+    $item = dupItem(dupBatch()->id, 'INV-MSG');
+
+    try {
+        app(PurchaseImportService::class)->approveItem($item, ['supplier_id' => 3]);
+        $this->fail('توقّعنا رمي DuplicateInvoiceException');
+    } catch (DuplicateInvoiceException $e) {
+        expect($e->getMessage())->toContain('INV-MSG');
+        expect($e->getMessage())->toContain((string) $existingId);
+    }
+});
+
+it('saves an invoice whose (number + supplier) combo is new', function () {
+    DB::table('purchase')->insert(['purchase_no' => 'INV-DUP-1', 'supplier_id' => 7, 'purchase_price' => 100]);
+
     $item = dupItem(dupBatch()->id, 'INV-NEW-9');
 
-    $id = app(PurchaseImportService::class)->approveItem($item);
+    $id = app(PurchaseImportService::class)->approveItem($item, ['supplier_id' => 7]);
 
     expect($id)->toBeGreaterThan(0);
     expect(DB::table('purchase')->where('purchase_no', 'INV-NEW-9')->count())->toBe(1);

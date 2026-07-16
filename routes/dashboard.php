@@ -15,6 +15,8 @@ use App\Http\Controllers\Dashboard\PurchaseController;
 use App\Http\Controllers\Dashboard\PurchaseAiController;
 use App\Http\Controllers\Dashboard\RentAiController;
 use App\Http\Controllers\Dashboard\RentAlertsController;
+use App\Http\Controllers\Dashboard\ShopPaymentController;
+use App\Http\Controllers\Dashboard\PaymentMatchController;
 use App\Http\Controllers\Dashboard\NotificationController;
 use App\Http\Controllers\Dashboard\AnalyticsController;
 use App\Http\Controllers\Dashboard\ExpenseController;
@@ -340,6 +342,9 @@ Route::group([
         Route::post('/purchase/ai/item/{item}/reject', [PurchaseAiController::class, 'reject'])->name('purchase.ai.reject');
         Route::post('/purchase/ai/item/{item}/reprocess', [PurchaseAiController::class, 'reprocess'])->name('purchase.ai.reprocess');
         Route::post('/purchase/ai/batch/{batch}/reprocess', [PurchaseAiController::class, 'reprocessBatch'])->name('purchase.ai.batch.reprocess');
+        // حذف الفواتير من قائمة الانتظار (فردي + متعدد)
+        Route::post('/purchase/ai/delete-many', [PurchaseAiController::class, 'destroyMany'])->name('purchase.ai.destroy_many');
+        Route::post('/purchase/ai/item/{item}/delete', [PurchaseAiController::class, 'destroy'])->name('purchase.ai.destroy');
 
         // ===== استيراد عقود الإيجار بالذكاء الاصطناعي =====
         Route::get('/rent/ai', [RentAiController::class, 'index'])->name('rent.ai.index');
@@ -361,6 +366,18 @@ Route::group([
         Route::get('/rent/alerts', [RentAlertsController::class, 'index'])->name('rent.alerts.index');
         Route::post('/rent/alerts/pay/{rentpay}', [RentAlertsController::class, 'markPaid'])->name('rent.alerts.pay');
         Route::get('/rent/alerts/receipt/{rentpay}', [RentAlertsController::class, 'receipt'])->name('rent.alerts.receipt');
+
+        // ===== متابعة سداد العقود على مستوى المحل =====
+        Route::get('/shop/{shop}/payments', [ShopPaymentController::class, 'show'])->name('shop.payments');
+        Route::get('/shop/{shop}/financial-report', [ShopPaymentController::class, 'report'])->name('shop.financial_report');
+        Route::post('/rent/pay/{rentpay}/record', [ShopPaymentController::class, 'record'])->name('rent.pay.record');
+
+        // ===== مطابقة الدفعات بالذكاء الاصطناعي =====
+        Route::get('/rent/payment-match', [PaymentMatchController::class, 'review'])->name('rent.payment_match.review');
+        Route::post('/rent/payment-match', [PaymentMatchController::class, 'store'])->name('rent.payment_match.store');
+        Route::post('/rent/payment-match/{item}/rematch', [PaymentMatchController::class, 'rematch'])->name('rent.payment_match.rematch');
+        Route::post('/rent/payment-match/{item}/approve', [PaymentMatchController::class, 'approve'])->name('rent.payment_match.approve');
+        Route::post('/rent/payment-match/{item}/reject', [PaymentMatchController::class, 'reject'])->name('rent.payment_match.reject');
 
         // ===== التحليلات والتنبؤات الذكية =====
         Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics.index');

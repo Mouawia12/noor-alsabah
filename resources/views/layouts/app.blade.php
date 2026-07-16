@@ -28,6 +28,41 @@
   width: calc(1em + .1rem + 1px) !important;
   padding: calc(0.2rem + 1px) calc(1rem + 1px) !important;
 }
+/* إصلاح تباين hover/active للسايدبار — يتغلّب على text-dark!important */
+#kt_aside .menu .menu-item .menu-link:hover:not(.disabled),
+#kt_aside .menu .menu-item.hover > .menu-link:not(.disabled),
+#kt_aside .menu .menu-item .menu-link.active,
+#kt_aside .menu .menu-item.here > .menu-link,
+#kt_aside .menu .menu-item.show > .menu-link {
+    background-color: #009EF7 !important;
+    border-radius: .475rem;
+}
+#kt_aside .menu .menu-item .menu-link:hover .menu-title,
+#kt_aside .menu .menu-item.hover > .menu-link .menu-title,
+#kt_aside .menu .menu-item .menu-link.active .menu-title,
+#kt_aside .menu .menu-item.here > .menu-link .menu-title,
+#kt_aside .menu .menu-item.show > .menu-link .menu-title,
+#kt_aside .menu .menu-item .menu-link:hover .menu-icon i,
+#kt_aside .menu .menu-item.hover > .menu-link .menu-icon i,
+#kt_aside .menu .menu-item .menu-link.active .menu-icon i,
+#kt_aside .menu .menu-item.here > .menu-link .menu-icon i,
+#kt_aside .menu .menu-item.show > .menu-link .menu-icon i {
+    color: #ffffff !important;
+}
+#kt_aside .menu .menu-item .menu-link:hover .menu-icon .svg-icon svg [fill]:not(.permanent):not(g),
+#kt_aside .menu .menu-item.hover > .menu-link .menu-icon .svg-icon svg [fill]:not(.permanent):not(g),
+#kt_aside .menu .menu-item .menu-link.active .menu-icon .svg-icon svg [fill]:not(.permanent):not(g),
+#kt_aside .menu .menu-item.here > .menu-link .menu-icon .svg-icon svg [fill]:not(.permanent):not(g),
+#kt_aside .menu .menu-item.show > .menu-link .menu-icon .svg-icon svg [fill]:not(.permanent):not(g) {
+    fill: #ffffff !important;
+}
+#kt_aside .menu .menu-item .menu-link:hover .menu-bullet .bullet,
+#kt_aside .menu .menu-item.hover > .menu-link .menu-bullet .bullet,
+#kt_aside .menu .menu-item .menu-link.active .menu-bullet .bullet,
+#kt_aside .menu .menu-item.here > .menu-link .menu-bullet .bullet,
+#kt_aside .menu .menu-item.show > .menu-link .menu-bullet .bullet {
+    background-color: #ffffff !important;
+}
 </style>
     @yield('styles')
 </head>
@@ -77,10 +112,6 @@
                                     </div>
                                 </div>
                                 <?php } ?>
-                                {{-- جرس إشعارات النظام (المشتريات/الإيجارات) --}}
-                                @auth
-                                    @include('partials.topbar._notifications-bell')
-                                @endauth
                                 @php $userAuth = explode(' ',trim(Auth::user()->name)); @endphp
                         <div class="d-flex align-items-center ms-1 ms-lg-3 fw-bold text-info  fs-7" style=""><span style="margin-top:-3px;font-size: 13.5px;">@auth(){{Auth::user()->name}} @else User Name @endauth</span>
                         </div>

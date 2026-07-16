@@ -5,8 +5,11 @@
 
 # secrets & logs (أُزيلت — كانت مكشوفة)
 /env
+.env.*
+!.env.example
 error_log
 *.log
+*.result.cache
 /storage/*.key
 /public/storage
 /public/build

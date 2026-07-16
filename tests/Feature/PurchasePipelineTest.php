@@ -59,6 +59,7 @@ function fakePages(array $paths): void
         }
         @file_put_contents($p, 'png');
     }
+
     $mock = Mockery::mock(PdfService::class);
     $mock->shouldReceive('rasterizeAll')->andReturn($paths);
     app()->instance(PdfService::class, $mock);

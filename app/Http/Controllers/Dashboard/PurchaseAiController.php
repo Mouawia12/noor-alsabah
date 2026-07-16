@@ -11,6 +11,7 @@ use App\Services\Ai\PurchaseImportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -331,6 +332,14 @@ class PurchaseAiController extends Controller
                 return response()->json(['ok' => false, 'message' => $e->getMessage()], 422);
             }
             return back()->with('alert.error', $e->getMessage());
+        } catch (\Throwable $e) {
+            // أي فشل حقيقي في الترحيل: سجّله وأعطِ المستخدم رسالة واضحة بدل خطأ 500 صامت
+            Log::error('فشل ترحيل الفاتورة (العنصر ' . $item->id . '): ' . $e->getMessage(), ['exception' => $e]);
+            $msg = 'تعذّر ترحيل الفاتورة بسبب خطأ غير متوقّع. لم يُحفظ أي سجل، يرجى المحاولة مجدداً.';
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['ok' => false, 'message' => $msg], 500);
+            }
+            return back()->with('alert.error', $msg);
         }
 
         // اسم الفرع في الرسالة حتى يعرف المستخدم أين رُحّلت الفاتورة بالضبط
@@ -386,6 +395,8 @@ class PurchaseAiController extends Controller
             } catch (\App\Services\Ai\DuplicateInvoiceException $e) {
                 $errors[] = ['id' => (int) $id, 'msg' => $e->getMessage()];
             } catch (\Throwable $e) {
+                // نُسجّل السبب الحقيقي للتشخيص، ونُبقي رسالة موجزة للمستخدم في الترحيل الجماعي
+                Log::error('فشل الترحيل الجماعي (العنصر ' . $id . '): ' . $e->getMessage(), ['exception' => $e]);
                 $errors[] = ['id' => (int) $id, 'msg' => 'تعذّر الترحيل'];
             }
         }
@@ -403,5 +414,75 @@ class PurchaseAiController extends Controller
             return response()->json(['ok' => true, 'message' => 'تم رفض الفاتورة.', 'item_id' => $item->id]);
         }
         return back()->with('alert.success', 'تم رفض الفاتورة.');
+    }
+
+    /**
+     * حذف عنصر واحد من قائمة «المقبولة بانتظار الترحيل» (تخفيف تراكم القائمة).
+     * مقصور على العناصر التي لم تُرحَّل بعد (needs_review وبلا سجل مشتريات) حتى لا تُمسّ أي فاتورة مُرحّلة.
+     */
+    public function destroy(Request $request, PurchaseImportItem $item)
+    {
+        $this->guardAiItem($item);
+
+        if ($item->status !== PurchaseImportItem::STATUS_NEEDS_REVIEW || $item->purchase_id) {
+            $msg = 'لا يمكن حذف فاتورة مُرحّلة أو غير معلّقة.';
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['ok' => false, 'message' => $msg], 422);
+            }
+            return back()->with('alert.error', $msg);
+        }
+
+        $item->delete();
+        $this->forgetAiStats();
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(['ok' => true, 'message' => 'تم حذف الفاتورة من قائمة الانتظار.', 'item_id' => $item->id]);
+        }
+        return back()->with('alert.success', 'تم حذف الفاتورة من قائمة الانتظار.');
+    }
+
+    /** حذف متعدد للفواتير المحددة من قائمة الانتظار (needs_review فقط). */
+    public function destroyMany(Request $request)
+    {
+        $ids = (array) $request->input('ids', []);
+        $deleted = 0;
+        $errors = [];
+
+        foreach ($ids as $id) {
+            $item = PurchaseImportItem::find($id);
+            // تجاهُل بصمت لأي عنصر مُرحّل/محذوف/غير موجود — لا تُمسّ الفواتير المُرحّلة
+            if (! $item || $item->status !== PurchaseImportItem::STATUS_NEEDS_REVIEW || $item->purchase_id) {
+                continue;
+            }
+            try {
+                $this->guardAiItem($item);
+                $item->delete();
+                $deleted++;
+            } catch (\Throwable $e) {
+                Log::error('فشل حذف عنصر من قائمة الانتظار (العنصر ' . $id . '): ' . $e->getMessage(), ['exception' => $e]);
+                $errors[] = ['id' => (int) $id, 'msg' => 'تعذّر الحذف'];
+            }
+        }
+
+        if ($deleted > 0) {
+            $this->forgetAiStats();
+        }
+
+        return response()->json([
+            'ok'      => true,
+            'deleted' => $deleted,
+            'errors'  => $errors,
+            'message' => $deleted > 0 ? "تم حذف {$deleted} فاتورة من قائمة الانتظار." : 'لم يُحذف أي عنصر.',
+        ]);
+    }
+
+    /** تحديث مؤشّرات اللوحة بأمان — فشل الكاش لا يُبطل الحذف. */
+    protected function forgetAiStats(): void
+    {
+        try {
+            \App\Support\AiDashboardStats::forget();
+        } catch (\Throwable $e) {
+            Log::warning('فشل تحديث مؤشّرات لوحة الذكاء الاصطناعي بعد الحذف: ' . $e->getMessage());
+        }
     }
 }

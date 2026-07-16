@@ -19,6 +19,7 @@
                     @endforeach
                 </select>
                 <button type="button" id="approveAllBtn" class="btn btn-success" data-url="{{ route('dashboard.purchase.ai.approve_all') }}">ترحيل الفواتير ✓</button>
+                <button type="button" id="deleteSelectedBtn" class="btn btn-light-danger" data-url="{{ route('dashboard.purchase.ai.destroy_many') }}">حذف المحدد 🗑</button>
             </div>
         </div>
         <div class="card-body">
@@ -43,7 +44,11 @@
     var CSRF = '{{ csrf_token() }}';
     function ready(fn){ if(document.readyState!=='loading'){fn();} else {document.addEventListener('DOMContentLoaded',fn);} }
     function toast(msg, ok){ var t=document.getElementById('toaster'); if(!t) return alert(msg);
-        var d=document.createElement('div'); d.className='alert alert-'+(ok===false?'danger':'success')+' shadow'; d.textContent=msg; t.appendChild(d); setTimeout(function(){d.remove();},4000); }
+        var d=document.createElement('div'); d.className='alert alert-'+(ok===false?'danger':'success')+' shadow'; d.textContent=msg; t.appendChild(d); setTimeout(function(){d.remove();}, ok===false?7000:4000); }
+    /** حالة انشغال الزر: تعطيل + سبينر أثناء المعالجة، ثم استعادته. */
+    function busy(btn, on){ if(!btn) return;
+        if(on){ btn.disabled=true; if(!btn.querySelector('.js-spin')){ var s=document.createElement('span'); s.className='spinner-border spinner-border-sm ms-2 align-middle js-spin'; s.setAttribute('role','status'); s.setAttribute('aria-hidden','true'); btn.appendChild(s); } }
+        else { btn.disabled=false; var sp=btn.querySelector('.js-spin'); if(sp){ sp.remove(); } } }
     var PER_PAGE = 20;
     function hideModal(id){ var m=document.getElementById('purModal'+id);
         if(m){ if(window.bootstrap&&bootstrap.Modal){var i=bootstrap.Modal.getInstance(m); if(i){i.hide();}}
@@ -83,19 +88,35 @@
         console.log('[AI-REVIEW] سكربت مراجعة المشتريات محمّل. أزرار:', document.querySelectorAll('.js-approve').length);
         document.addEventListener('click', function(e){
             var a=e.target.closest('.js-approve');
-            if(a){ e.preventDefault(); var shop=requireShop(); if(!shop) return; var id=a.closest('tr').getAttribute('data-item'); a.disabled=true;
-                post(a.getAttribute('data-url'),{shop_id:shop}).then(function(res){toast(res.message);hideModal(id);reloadList();}).catch(function(err){a.disabled=false;toast(err&&err.message?err.message:'تعذّر الترحيل',false);}); return; }
+            if(a){ e.preventDefault(); var shop=requireShop(); if(!shop) return; var id=a.closest('tr').getAttribute('data-item'); busy(a,true);
+                post(a.getAttribute('data-url'),{shop_id:shop}).then(function(res){toast(res.message);hideModal(id);reloadList();}).catch(function(err){busy(a,false);toast(err&&err.message?err.message:'تعذّر الترحيل',false);}); return; }
             var ma=e.target.closest('.js-modal-approve');
-            if(ma){ e.preventDefault(); var shop2=requireShop(); if(!shop2) return; var id2=ma.getAttribute('data-item'); var form=document.querySelector('.js-modal-form[data-item="'+id2+'"]'); var body={shop_id:shop2}; if(form){new FormData(form).forEach(function(v,k){body[k]=v;});} ma.disabled=true;
-                post(ma.getAttribute('data-url'),body).then(function(res){toast(res.message);hideModal(id2);reloadList();}).catch(function(err){ma.disabled=false;toast(err&&err.message?err.message:'تعذّر الترحيل',false);}); return; }
+            if(ma){ e.preventDefault(); var shop2=requireShop(); if(!shop2) return; var id2=ma.getAttribute('data-item'); var form=document.querySelector('.js-modal-form[data-item="'+id2+'"]'); var body={shop_id:shop2}; if(form){new FormData(form).forEach(function(v,k){body[k]=v;});} busy(ma,true);
+                post(ma.getAttribute('data-url'),body).then(function(res){toast(res.message);hideModal(id2);reloadList();}).catch(function(err){busy(ma,false);toast(err&&err.message?err.message:'تعذّر الترحيل',false);}); return; }
             var rj=e.target.closest('.js-reject');
             if(rj){ e.preventDefault(); if(!confirm('تأكيد رفض هذه الفاتورة؟'))return; var id3=rj.closest('.modal').id.replace('purModal','');
                 post(rj.getAttribute('data-url'),{reason:'رُفضت يدوياً'}).then(function(res){toast(res.message);hideModal(id3);reloadList();}).catch(function(){toast('تعذّر الرفض',false);}); return; }
             var all=e.target.closest('#approveAllBtn');
             if(all){ e.preventDefault(); var shopAll=requireShop(); if(!shopAll) return; var shopAllName=selectedShopName();
                 var ids=[].map.call(document.querySelectorAll('tr[data-item]'),function(tr){return tr.getAttribute('data-item');});
-                if(!ids.length){toast('لا توجد فواتير',false);return;} if(!confirm('ترحيل '+ids.length+' فاتورة إلى فرع «'+shopAllName+'»؟'))return; all.disabled=true;
-                post(all.getAttribute('data-url'),{ids:ids,shop_id:shopAll}).then(function(res){ var nm=res.shop_name||shopAllName; toast('تم ترحيل '+res.approved+' فاتورة إلى فرع «'+nm+'» بنجاح'+(res.errors&&res.errors.length?' — تخطّي '+res.errors.length:'')); all.disabled=false; reloadList(); }).catch(function(err){all.disabled=false;toast(err&&err.message?err.message:'تعذّر الترحيل الجماعي',false);}); return; }
+                if(!ids.length){toast('لا توجد فواتير',false);return;} if(!confirm('ترحيل '+ids.length+' فاتورة إلى فرع «'+shopAllName+'»؟'))return; busy(all,true);
+                post(all.getAttribute('data-url'),{ids:ids,shop_id:shopAll}).then(function(res){ busy(all,false); var nm=res.shop_name||shopAllName; var ok=res.approved||0; var errs=res.errors||[];
+                    if(ok){ toast('تم ترحيل '+ok+' فاتورة إلى فرع «'+nm+'» بنجاح'+(errs.length?' — فشل '+errs.length:'')); }
+                    if(errs.length){ var reasons=errs.map(function(x){return x.msg||'تعذّر الترحيل';}); var uniq=reasons.filter(function(v,i){return reasons.indexOf(v)===i;}); toast('لم تُرحَّل '+errs.length+' فاتورة: '+uniq.slice(0,3).join(' | ')+(uniq.length>3?' …':''), false); }
+                    else if(!ok){ toast('لم تُرحَّل أي فاتورة (لا فواتير مؤهّلة للترحيل).', false); }
+                    reloadList(); }).catch(function(err){busy(all,false);toast(err&&err.message?err.message:'تعذّر الترحيل الجماعي',false);}); return; }
+            /* تحديد الكل / إلغاء تحديد الكل */
+            var ca=e.target.closest('#checkAll');
+            if(ca){ var checked=ca.checked; document.querySelectorAll('.js-row-check').forEach(function(c){c.checked=checked;}); return; }
+            /* حذف فاتورة مفردة من قائمة الانتظار */
+            var del=e.target.closest('.js-delete');
+            if(del){ e.preventDefault(); if(!confirm('تأكيد حذف هذه الفاتورة من قائمة الانتظار؟'))return; del.disabled=true;
+                post(del.getAttribute('data-url'),{}).then(function(res){toast(res.message);reloadList();}).catch(function(err){del.disabled=false;toast(err&&err.message?err.message:'تعذّر الحذف',false);}); return; }
+            /* حذف الفواتير المحددة (متعدد) */
+            var dsel=e.target.closest('#deleteSelectedBtn');
+            if(dsel){ e.preventDefault(); var dids=[].map.call(document.querySelectorAll('.js-row-check:checked'),function(c){return c.value;});
+                if(!dids.length){toast('لم تُحدَّد فواتير للحذف',false);return;} if(!confirm('حذف '+dids.length+' فاتورة من قائمة الانتظار؟'))return; dsel.disabled=true;
+                post(dsel.getAttribute('data-url'),{ids:dids}).then(function(res){toast(res.message);dsel.disabled=false;reloadList();}).catch(function(err){dsel.disabled=false;toast(err&&err.message?err.message:'تعذّر الحذف',false);}); return; }
             /* اعتراض روابط الترقيم → تنقّل بـ AJAX بلا إعادة تحميل كاملة */
             var pg=e.target.closest('#reviewList .pagination a');
             if(pg){ e.preventDefault(); var href=pg.getAttribute('href'); if(!href) return;
@@ -103,11 +124,11 @@
                 var nu=new URL(location.href); nu.searchParams.set('page', p); history.pushState({}, '', nu.toString()); reloadList(p); return; }
         });
 
-        // مؤشّر الفرع المحدد يتحدّث فور الاختيار
+        /* مؤشّر الفرع المحدد يتحدّث فور الاختيار */
         var sel=document.getElementById('shopSelect');
         if(sel){ sel.addEventListener('change', refreshChosen); refreshChosen(); }
 
-        // بحث بالكتابة (بالاسم أو الكود) عبر Select2 إن توفّر
+        /* بحث بالكتابة (بالاسم أو الكود) عبر Select2 إن توفّر */
         if (window.jQuery && jQuery.fn && jQuery.fn.select2) {
             jQuery('#shopSelect').select2({
                 placeholder: 'ابحث بالاسم أو الكود...',
