@@ -97,25 +97,31 @@ function assertBladeHas(string $relPath, array $needles): void
     }
 }
 
-it('purchase status blade compiles and wires the new success/failure/connection banners', function () {
+it('purchase status blade drives realtime step with an animated, creeping progress bar', function () {
     assertBladeHas('resources/views/dashboard/purchase/ai/status.blade.php', [
         'id="doneBox"', 'id="failBox"', 'id="connBox"', 'id="sumTotal"',
         'تمت معالجة الفواتير بنجاح',            // بانر نجاح واضح بالعدد
         'إعادة المحاولة',                       // زر إعادة المحاولة
         "dashboard.purchase.ai.batch.reprocess", // نموذج الزر يستهدف مسار reprocess
-        'MAX_POLLS',                            // مهلة/سقف محاولات
+        'dashboard.purchase.ai.batch.step',     // السائق يستدعي endpoint المعالجة اللحظية
+        'progress-bar-animated',                // شريط متحرّك احترافي
+        'function startCreep',                   // زحف سلس أثناء انتظار الاستخراج الطويل
+        'capPct',                               // سقف العنصر الجاري
         "res.status === 401",                   // كشف انتهاء الجلسة بدل الدوران الصامت
         "addEventListener('pagehide'",          // تنظيف المؤقّت عند مغادرة الصفحة
     ]);
 });
 
-it('rent status blade compiles and wires the new banners and its own reprocess route', function () {
+it('rent status blade drives realtime step with an animated, creeping progress bar', function () {
     assertBladeHas('resources/views/dashboard/rent/ai/status.blade.php', [
         'id="failBox"', 'id="connBox"', 'id="sumTotal"',
         'تمت معالجة العقود بنجاح',
         'إعادة المحاولة',
         "dashboard.rent.ai.batch.reprocess",
-        'MAX_POLLS',
+        'dashboard.rent.ai.batch.step',
+        'progress-bar-animated',
+        'function startCreep',
+        'capPct',
         "addEventListener('pagehide'",
     ]);
 });

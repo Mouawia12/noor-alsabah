@@ -29,7 +29,7 @@
         </div>
         <div class="card-body">
             <div class="progress h-25px mb-5">
-                <div id="progressBar" class="progress-bar bg-primary fw-bold" role="progressbar" style="width: 0%">0%</div>
+                <div id="progressBar" class="progress-bar bg-primary fw-bold progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">0%</div>
             </div>
             <div id="processingMsg" class="text-center py-6 {{ in_array($batch->status, ['completed','failed']) ? 'd-none' : '' }}">
                 <div class="scan-doc mb-4">
@@ -107,10 +107,23 @@
     const STATUS_AR = {!! json_encode(__('ai.status'), JSON_UNESCAPED_UNICODE) !!};
     const el = id => document.getElementById(id);
     // STEP_GAP: مهلة قصيرة بين خطوتين، ERR_MS: بعد خطأ اتصال، MAX_NET_ERRORS: سقف الأخطاء المتتالية، MAX_POLLS: سقف كلّي احترازي
-    const STEP_GAP = 250, ERR_MS = 4000, MAX_NET_ERRORS = 6, MAX_POLLS = 5000;
+    const STEP_GAP = 200, ERR_MS = 4000, MAX_NET_ERRORS = 6, MAX_POLLS = 5000;
     let stopped = false, netErrors = 0, steps = 0;
+    // حالة الشريط: يزحف بسلاسة نحو «سقف» العنصر الجاري (capPct) حتى أثناء انتظار الاستخراج الطويل
+    let total = 0, doneCount = 0, shownPct = 0, capPct = 8, creepTimer = null;
 
-    function stop() { stopped = true; }
+    function setBar(p){ p = Math.max(0, Math.min(100, p)); var b = el('progressBar'); b.style.width = p.toFixed(0) + '%'; b.innerText = p.toFixed(0) + '%'; }
+    function startCreep(){
+        if (creepTimer || stopped) return;
+        creepTimer = setInterval(function(){
+            if (stopped) return;
+            // زحف أسّي مطمئن نحو سقف العنصر الجاري دون تجاوزه (حركة مستمرّة تُطمئن المستخدم أثناء القراءة)
+            if (shownPct < capPct - 0.5) { shownPct += Math.max(0.15, (capPct - shownPct) * 0.02); setBar(shownPct); }
+        }, 300);
+    }
+    function stopCreep(){ if (creepTimer) { clearInterval(creepTimer); creepTimer = null; } }
+
+    function stop() { stopped = true; stopCreep(); }
     function showConn(msg, mode) {
         el('connMsg').innerText = msg;
         el('connRetry').classList.toggle('d-none', mode !== 'retry');
@@ -125,13 +138,11 @@
         el('totalItems').innerText = d.total_items;
         el('processedItems').innerText = d.processed_items;
         el('failedItems').innerText = d.failed_items;
-        const total = d.total_items || 0;
-        const done = (d.processed_items || 0) + (d.failed_items || 0);
-        const pct = total > 0 ? Math.round(done / total * 100) : (d.status === 'completed' ? 100 : (d.phase === 'prepared' ? 8 : 3));
-        const bar = el('progressBar'); bar.style.width = pct + '%'; bar.innerText = pct + '%';
-        if (total > 0) { el('procTitle').innerText = 'جارٍ قراءة العقود... (' + done + ' من ' + total + ')'; }
+        total = d.total_items || 0;
+        doneCount = (d.processed_items || 0) + (d.failed_items || 0);
 
         if (d.status === 'failed') {
+            stopCreep();
             el('processingMsg').classList.add('d-none');
             el('doneBox').classList.add('d-none');
             el('failReason').innerText = d.error_reason || '';
@@ -139,20 +150,37 @@
             return true;
         }
         if (d.status === 'completed') {
+            stopCreep(); setBar(100);
             el('processingMsg').classList.add('d-none');
             el('failBox').classList.add('d-none');
-            el('sumTotal').innerText = total || done;
+            el('sumTotal').innerText = total || doneCount;
             el('sumAccepted').innerText = d.processed_items || 0;
             el('sumRejected').innerText = d.failed_items || 0;
             el('doneBox').classList.remove('d-none');
             return true;
         }
+        // قيد المعالجة: اضبط أرضية الشريط (ما أُنجز فعلاً) وسقف العنصر الجاري + نصّاً حيّاً
+        if (total > 0) {
+            var floor = doneCount / total * 100;
+            if (shownPct < floor) { shownPct = floor; }
+            // سقف العنصر الجاري، لكن لا نبلغ 100% إلا عند الاكتمال الفعلي (نترك هامشاً)
+            capPct = Math.min(95, (Math.min(doneCount + 1, total)) / total * 100);
+            var cur = Math.min(doneCount + 1, total);
+            el('procTitle').innerText = 'جارٍ قراءة العقود... (' + doneCount + ' من ' + total + ')';
+            el('procSub').innerText = 'يقرأ الذكاء الاصطناعي العقد رقم ' + cur + ' من ' + total + ' — قد يستغرق كل عقد لحظات، أبقِ الصفحة مفتوحة.';
+        } else {
+            capPct = 12; // مرحلة التحضير (تحويل صفحات الملف)
+            el('procTitle').innerText = 'جارٍ تجهيز صفحات الملف...';
+        }
+        if (shownPct > capPct) { shownPct = capPct; }
+        setBar(shownPct);
         if (d.error_reason) { const eb = el('errorBox'); eb.classList.remove('d-none'); eb.innerText = d.error_reason; }
         return false;
     }
 
     function drive() {
         if (stopped) return;
+        startCreep();
         if (++steps > MAX_POLLS) {
             stop();
             showConn('استغرقت المعالجة وقتاً أطول من المتوقع. يمكنك تحديث الصفحة للمتابعة.', 'reload');
@@ -190,7 +218,7 @@
     }
 
     el('connRetry').addEventListener('click', function () {
-        netErrors = 0; steps = 0; stopped = false; hideConn(); drive();
+        netErrors = 0; steps = 0; stopped = false; hideConn(); startCreep(); drive();
     });
     el('connReload').addEventListener('click', function () { location.reload(); });
 
