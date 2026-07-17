@@ -38,6 +38,7 @@ beforeEach(function () {
         $t->text('renewal_terms')->nullable();
         $t->text('termination_terms')->nullable();
         $t->unsignedBigInteger('import_item_id')->nullable();
+        $t->string('ai_contract_file', 500)->nullable();
         $t->unsignedBigInteger('create_user')->nullable();
         $t->timestamp('created_at')->nullable();
     });

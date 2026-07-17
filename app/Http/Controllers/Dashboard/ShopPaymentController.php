@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * متابعة سداد العقود على مستوى المحل: عرض العقود ودفعاتها وسنداتها والملخص المالي،
@@ -46,7 +47,8 @@ class ShopPaymentController extends Controller
                                 && $p->rentpay_dt && Carbon::parse($p->rentpay_dt)->lte($today))->values(),
                 'upcoming' => $payments->filter(fn ($p) => $p->status !== ShopRentpay::STATUS_PAID
                                 && $p->rentpay_dt && Carbon::parse($p->rentpay_dt)->gt($today))->values(),
-                'receipts' => ShopReceipt::where('shop_rent_id', $c->shop_rent_id)->latest('paid_at')->get(),
+                'receipts' => ShopReceipt::with('payment:rentpay_id,seq_no')
+                                ->where('shop_rent_id', $c->shop_rent_id)->latest('paid_at')->get(),
             ];
         });
 
@@ -218,6 +220,17 @@ class ShopPaymentController extends Controller
         ];
 
         return $this->exportData('التقرير_المالي_' . ($shopRow->shop_name ?? $shop), $summary, $rows, $header, $format);
+    }
+
+    /** تحميل ملف العقد (PDF) المستورد بالذكاء الاصطناعي — من القرص الخاص. */
+    public function contractFile(int $shopRent)
+    {
+        $c = Shop_rent::find($shopRent);
+        abort_if(! $c || ! $c->ai_contract_file, 404, 'لا يوجد ملف عقد مرفق.');
+        $path = Storage::disk(config('ai.disk'))->path($c->ai_contract_file);
+        abort_if(! is_file($path), 404, 'ملف العقد غير موجود على القرص.');
+
+        return response()->file($path, ['Content-Type' => 'application/pdf']);
     }
 
     protected function fail(Request $request, string $msg, int $code)

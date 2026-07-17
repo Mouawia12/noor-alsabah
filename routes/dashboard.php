@@ -371,6 +371,7 @@ Route::group([
 
         // ===== متابعة سداد العقود على مستوى المحل =====
         Route::get('/shop/{shop}/payments', [ShopPaymentController::class, 'show'])->name('shop.payments');
+        Route::get('/rent/contract/{shopRent}/file', [ShopPaymentController::class, 'contractFile'])->name('rent.contract.file');
         Route::get('/shop/{shop}/financial-report', [ShopPaymentController::class, 'report'])->name('shop.financial_report');
         Route::get('/shop/{shop}/financial-report/export', [ShopPaymentController::class, 'exportReport'])->name('shop.financial_report.export');
         Route::post('/rent/pay/{rentpay}/record', [ShopPaymentController::class, 'record'])->name('rent.pay.record');

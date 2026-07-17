@@ -78,8 +78,19 @@
                 }
                 var list = document.getElementById('reviewList'); if(list) list.innerHTML = data.html;
                 var c = document.getElementById('reviewCount'); if(c) c.textContent = data.count;
+                initRowSelects();
             })
             .catch(function(){ location.reload(); });
+    }
+    /* بحث بالكتابة (بالاسم أو الكود) على قوائم المحل في كل صف عبر Select2 */
+    function initRowSelects(){
+        if (window.jQuery && jQuery.fn && jQuery.fn.select2) {
+            jQuery('.row-shop').each(function(){
+                if (!jQuery(this).hasClass('select2-hidden-accessible')) {
+                    jQuery(this).select2({ placeholder:'ابحث بالاسم أو الكود...', dir:'rtl', width:'180px', allowClear:true });
+                }
+            });
+        }
     }
     function rowShop(id){
         var tr = document.querySelector('tr[data-item="'+id+'"]'); if(!tr) return '';
@@ -94,6 +105,7 @@
 
     ready(function(){
         console.log('[AI-REVIEW] تم تحميل سكربت المراجعة. أزرار:', document.querySelectorAll('.js-approve').length);
+        initRowSelects();
 
         document.addEventListener('click', function(e){
             var a = e.target.closest('.js-approve');

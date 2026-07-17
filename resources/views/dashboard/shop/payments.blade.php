@@ -19,18 +19,22 @@
 @forelse ($contracts as $c)
     @php $ct = $c['contract']; $s = $c['summary']; @endphp
     <div class="card mb-5">
-        <div class="card-header flex-wrap gap-2">
+        <div class="card-header flex-wrap gap-2 d-flex align-items-center justify-content-between">
             <div class="card-title flex-column">
                 <h3 class="fw-bold">عقد رقم: {{ $ct->contract_no ?? $ct->rent_no ?? '—' }}
                     @if($ct->contract_type)<span class="badge badge-light-{{ $ct->contract_type === 'renewal' ? 'warning' : 'success' }} ms-2">{{ $ct->contract_type === 'renewal' ? 'مجدَّد' : 'جديد' }}</span>@endif
                 </h3>
                 <span class="text-muted fs-7">
-                    المستأجر: {{ $ct->tenant ?? '—' }} @if($ct->tenant_id_no)({{ $ct->tenant_id_no }})@endif
+                    المؤجِّر: <b class="text-gray-800">{{ $ct->landlord ?? $ct->rent_name ?? '—' }}</b>
+                    · المستأجر: {{ $ct->tenant ?? '—' }} @if($ct->tenant_id_no)({{ $ct->tenant_id_no }})@endif
                     · الوحدة: {{ $ct->unit_no ?? '—' }} @if($ct->floor_no)- طابق {{ $ct->floor_no }}@endif
                     · من {{ optional($ct->start_date)->format('Y-m-d') ?? '—' }} إلى {{ optional($ct->end_date)->format('Y-m-d') ?? '—' }}
                     · الدورة: {{ ['monthly'=>'شهري','quarterly'=>'ربع سنوي','semi'=>'نصف سنوي','annual'=>'سنوي'][$ct->payment_cycle] ?? '—' }}
                 </span>
             </div>
+            @if(! empty($ct->ai_contract_file))
+                <a href="{{ route('dashboard.rent.contract.file', $ct->shop_rent_id) }}" target="_blank" class="btn btn-sm btn-light-primary"><i class="fas fa-file-pdf text-danger me-1"></i>تحميل العقد</a>
+            @endif
         </div>
         <div class="card-body">
             {{-- الملخص المالي للعقد --}}
@@ -62,10 +66,14 @@
             {{-- سندات القبض --}}
             @if($c['receipts']->isNotEmpty())
                 <h4 class="text-info mt-5 mb-3">سندات القبض</h4>
+                @php
+                    $ord = [1=>'الأولى',2=>'الثانية',3=>'الثالثة',4=>'الرابعة',5=>'الخامسة',6=>'السادسة',7=>'السابعة',8=>'الثامنة',9=>'التاسعة',10=>'العاشرة',11=>'الحادية عشرة',12=>'الثانية عشرة'];
+                    $instLabel = fn($n) => $n ? ('الدفعة ' . ($ord[$n] ?? ('رقم ' . $n))) : '—';
+                @endphp
                 <div class="table-responsive"><table class="table table-row-bordered align-middle">
-                    <thead><tr class="fw-bold text-muted bg-light"><th>رقم السند</th><th>المبلغ</th><th>التاريخ</th><th>الطريقة</th></tr></thead>
+                    <thead><tr class="fw-bold text-gray-800 bg-light"><th>رقم السند</th><th>الدفعة</th><th>المبلغ</th><th>التاريخ</th><th>الطريقة</th></tr></thead>
                     <tbody>@foreach($c['receipts'] as $r)
-                        <tr><td class="fw-bold">{{ $r->receipt_no }}</td><td>{{ number_format($r->amount,2) }}</td><td>{{ optional($r->paid_at)->format('Y-m-d') }}</td><td>{{ $r->method ?? '—' }}</td></tr>
+                        <tr><td class="fw-bold">{{ $r->receipt_no }}</td><td><span class="badge badge-light-info">{{ $instLabel(optional($r->payment)->seq_no) }}</span></td><td>{{ number_format($r->amount,2) }}</td><td>{{ optional($r->paid_at)->format('Y-m-d') }}</td><td>{{ $r->method ?? '—' }}</td></tr>
                     @endforeach</tbody>
                 </table></div>
             @endif

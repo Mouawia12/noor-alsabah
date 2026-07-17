@@ -42,6 +42,7 @@ class RentTestSchema
             $t->decimal('total_value', 15, 2)->nullable();
             $t->decimal('first_payment', 15, 2)->nullable();
             $t->unsignedInteger('payments_count')->nullable();
+            $t->string('ai_contract_file', 500)->nullable();
             $t->timestamps();
         });
 

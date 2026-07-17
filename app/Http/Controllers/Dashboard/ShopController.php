@@ -375,6 +375,8 @@ class ShopController extends Controller
     ';
     $opt .= '
     <li><a class="dropdown-item upd_rentpay fw-bolder  text-dark"  data-url=' . "'" . route('dashboard.shop.upd_rentpay') . "'" . ' onclick="upd_rentpay(' . "'" . $x->shop_id . "'" . ')">  <i class="fas fa-sticky-note fa-fw text-success"></i> ادارة الدفعات</a></li>
+    <li><a class="dropdown-item fw-bolder text-dark" href="' . route('dashboard.shop.payments', $x->shop_id) . '"><i class="fas fa-hand-holding-usd fa-fw text-primary"></i> متابعة السداد (العقود والدفعات)</a></li>
+    <li><a class="dropdown-item fw-bolder text-dark" href="' . route('dashboard.shop.financial_report', $x->shop_id) . '"><i class="fas fa-chart-line fa-fw text-info"></i> التقرير المالي</a></li>
     ';
                             }
                             if (Perm::get_function_access(34)) {

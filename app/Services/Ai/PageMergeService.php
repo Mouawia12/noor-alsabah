@@ -27,8 +27,14 @@ class PageMergeService
             $hasId = $this->anyFilled($data, $idFields);
             $hasAmount = $this->anyFilled($data, $amountFields);
 
-            // أول عنصر دائماً بداية؛ وإلا تُعتبر بداية فقط عند وجود مُعرّف أو مبلغ
-            $isStart = ($parent === null) || $hasId || $hasAmount;
+            // مُعرّف هذه الصفحة والأب (نموذج REGA يكرّر رقم العقد في ترويسة كل صفحة)
+            $curId = $this->idValue($data, $idFields);
+            $parentId = $parent ? $this->idValue((array) ($parent->extracted_json['data'] ?? []), $idFields) : null;
+            // نفس المُعرّف للأب ⇒ تكملة لنفس المستند (لا يبدأ عقداً جديداً)
+            $sameDoc = $parent !== null && $curId !== null && $parentId !== null && $curId === $parentId;
+
+            // أول عنصر دائماً بداية؛ وإلا يبدأ مستنداً جديداً بمُعرّف/مبلغ ما لم يكن نفس مُعرّف الأب
+            $isStart = ($parent === null) || (! $sameDoc && ($hasId || $hasAmount));
 
             if ($isStart) {
                 $parent = $it;
@@ -71,6 +77,19 @@ class PageMergeService
 
         // 3) إخفاء صفحة التكملة من المراجعة
         $child->update(['status' => $mergedStatus, 'error_reason' => null]);
+    }
+
+    /** القيمة المُطبّعة لأوّل حقل مُعرّف مُعبّأ (لمقارنة تطابق المستند بين الصفحات). */
+    protected function idValue(array $data, array $fields): ?string
+    {
+        foreach ($fields as $f) {
+            $v = $data[$f] ?? null;
+            if ($v !== null && $v !== '' && $v !== [] && trim((string) $v) !== '') {
+                // تطبيع: إزالة الفراغات وتوحيد الحالة حتى لا تُفرّق فروقٌ شكلية بين الصفحات
+                return preg_replace('/\s+/u', '', mb_strtolower(trim((string) $v)));
+            }
+        }
+        return null;
     }
 
     protected function anyFilled(array $data, array $fields): bool

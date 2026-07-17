@@ -11,12 +11,12 @@
                 <tr data-item="{{ $item->id }}">
                     <td>{{ $items->firstItem() + $i }}</td>
                     <td>{{ \Illuminate\Support\Str::limit($item->batch->original_filename ?? '—', 18) }} <span class="text-muted fs-8">(ص {{ $item->page_from }}–{{ $item->page_to }})</span></td>
-                    <td class="fw-bold">{{ $d['contract_no'] ?? '—' }}</td>
-                    <td>{{ \Illuminate\Support\Str::limit($d['landlord'] ?? '—', 16) }}</td>
+                    <td class="fw-bold text-nowrap">{{ $d['contract_no'] ?? '—' }}</td>
+                    <td>{{ $d['landlord'] ?? '—' }}</td>
                     <td>{{ $d['rent_value'] ?? '—' }}</td>
                     <td>@if ($conf !== null)<span class="badge badge-light-{{ $low ? 'danger' : 'success' }}">{{ round($conf * 100) }}%</span>@endif @if ($item->is_duplicate)<span class="badge badge-light-danger">مكرر؟</span>@endif</td>
                     <td>
-                        <select class="form-select form-select-sm row-shop">
+                        <select class="form-select form-select-sm row-shop" data-control="select2" data-placeholder="ابحث بالاسم أو الكود..." style="min-width:180px">
                             <option value="">— اختر —</option>
                             @foreach ($shops as $s)<option value="{{ $s->shop_id }}">{{ ($s->shop_code ?? null ? '('.$s->shop_code.') ' : '').$s->shop_name }}</option>@endforeach
                         </select>

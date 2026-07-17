@@ -86,6 +86,8 @@ class RentImportService
                 'renewal_terms'     => $data['renewal_terms'] ?? null,
                 'termination_terms' => $data['termination_terms'] ?? null,
                 'import_item_id'    => $item->id,
+                // ملف العقد الأصلي (PDF) ليظهر «تحميل العقد» في صفحة المحل
+                'ai_contract_file'  => $item->batch->file_path ?? null,
                 'create_user'       => $userId,
                 'created_at'        => Carbon::now(),
             ]);
