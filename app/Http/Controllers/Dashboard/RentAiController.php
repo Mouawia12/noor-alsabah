@@ -199,6 +199,53 @@ class RentAiController extends Controller
         return response()->file($paths[$page]);
     }
 
+    /** تنزيل العقد (صفحاته) كملف PDF واحد مرتّب — من صور الصفحات المستخرجة لهذا العنصر. */
+    public function itemPdf(RentContractImportItem $item)
+    {
+        $this->guardAiItem($item);
+        $paths = array_values(array_filter(
+            explode(',', (string) $item->source_file_path),
+            fn ($p) => $p !== '' && is_file($p)
+        ));
+        abort_if(empty($paths), 404, 'لا توجد صفحات لهذا العقد.');
+
+        $data = $item->extracted_json['data'] ?? [];
+        $title = 'عقد ' . ($data['contract_no'] ?? ('رقم ' . $item->id));
+
+        $pdf = new \TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+        $pdf->SetCreator('نور الصباح');
+        $pdf->SetTitle($title);
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->SetAutoPageBreak(false, 0);
+        $pdf->SetMargins(0, 0, 0);
+
+        $added = 0;
+        foreach ($paths as $img) {
+            try {
+                // اتّجاه الصفحة حسب أبعاد الصورة (يمنع القصّ في المسح الأفقي)
+                $size = @getimagesize($img);
+                $landscape = $size && $size[0] > $size[1];
+                [$w, $h] = $landscape ? [297, 210] : [210, 297];
+                $pdf->AddPage($landscape ? 'L' : 'P', 'A4');
+                // fitbox=CM: احتواء الصورة داخل الصفحة مع الحفاظ على النسبة وتوسيطها (بلا تشويه)
+                $pdf->Image($img, 0, 0, $w, $h, '', '', '', false, 300, '', false, false, 0, 'CM', false, false);
+                $added++;
+            } catch (\Throwable $e) {
+                // صفحة تالفة لا تُفشل الملف كلّه — نتجاوزها ونُكمل بقية الصفحات
+                \Illuminate\Support\Facades\Log::warning('تعذّرت إضافة صفحة للـPDF (' . $img . '): ' . $e->getMessage());
+            }
+        }
+        abort_if($added === 0, 404, 'تعذّر بناء ملف العقد من الصفحات.');
+
+        $safe = 'contract_' . $item->id;
+
+        return response($pdf->Output($safe . '.pdf', 'S'), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $safe . '.pdf"',
+        ]);
+    }
+
     public function failed()
     {
         $page_title = 'العقود غير المعالجة';

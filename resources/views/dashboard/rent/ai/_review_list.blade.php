@@ -24,6 +24,7 @@
                     <td class="text-nowrap">
                         <button type="button" class="btn btn-sm btn-success js-approve" data-url="{{ route('dashboard.rent.ai.approve', $item->id) }}">اعتماد</button>
                         <button type="button" class="btn btn-sm btn-light-primary" data-bs-toggle="modal" data-bs-target="#rentModal{{ $item->id }}">مراجعة/تعديل</button>
+                        <a href="{{ route('dashboard.rent.ai.item.pdf', $item->id) }}" target="_blank" class="btn btn-sm btn-light-danger" title="تنزيل العقد PDF"><i class="fas fa-file-pdf me-1"></i>PDF</a>
                     </td>
                 </tr>
             @empty
