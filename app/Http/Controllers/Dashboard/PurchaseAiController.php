@@ -48,14 +48,15 @@ class PurchaseAiController extends Controller
 
         $file = $request->file('document');
         $disk = config('ai.disk');
-        $path = $file->store('purchase/batches', $disk);
 
-        // تحذير من تكرار رفع نفس الملف
-        $existing = $this->importService->findExistingByHash(Storage::disk($disk)->path($path));
+        // رفض الملف المكرّر قبل تخزينه: نحسب البصمة من الملف المؤقّت مباشرةً
+        // فلا يُرفع ولا تُنشأ دفعة جديدة (طلب العميل: المكرّر لا يُضاف أصلاً).
+        $existing = $this->importService->findByHash(hash_file('sha256', $file->getRealPath()));
         if ($existing) {
-            return $this->uploadResponse($request, $existing->id, 'هذا الملف مرفوع مسبقاً — هذه نتيجة المعالجة السابقة.');
+            return $this->duplicateResponse($request, $existing->id);
         }
 
+        $path = $file->store('purchase/batches', $disk);
         $batch = $this->importService->createBatch($path, $file->getClientOriginalName(), Auth::id());
 
         return $this->uploadResponse($request, $batch->id, 'بدأت المعالجة. يمكنك متابعة التقدّم هنا.');
@@ -70,6 +71,27 @@ class PurchaseAiController extends Controller
         }
 
         return redirect()->to($url)->with('alert.success', $message);
+    }
+
+    /**
+     * استجابة الملف المكرّر: لا يُرفع ولا تُنشأ دفعة — رسالة واضحة + رابط النتيجة السابقة.
+     * لا نُرسل «redirect» حتى لا تنتقل الواجهة تلقائياً (المطلوب: إخبار المستخدم أنه مكرّر فقط).
+     */
+    protected function duplicateResponse(Request $request, int $existingId)
+    {
+        $message = 'هذا الملف مكرّر — سبق رفعه ومعالجته، ولم تتم إضافته مرّة أخرى.';
+        $existingUrl = route('dashboard.purchase.ai.batch', $existingId);
+
+        if ($request->ajax() || $request->expectsJson()) {
+            return response()->json([
+                'ok'           => false,
+                'duplicate'    => true,
+                'message'      => $message,
+                'existing_url' => $existingUrl,
+            ], 409);
+        }
+
+        return redirect()->to($existingUrl)->with('alert.error', $message);
     }
 
     /** صفحة متابعة دفعة. */

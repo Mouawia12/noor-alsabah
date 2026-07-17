@@ -44,13 +44,14 @@ class RentAiController extends Controller
 
         $file = $request->file('document');
         $disk = config('ai.disk');
-        $path = $file->store('rent/batches', $disk);
 
-        $existing = $this->importService->findExistingByHash(Storage::disk($disk)->path($path));
+        // رفض الملف المكرّر قبل تخزينه (طلب العميل: المكرّر لا يُرفع أصلاً)
+        $existing = $this->importService->findByHash(hash_file('sha256', $file->getRealPath()));
         if ($existing) {
-            return $this->uploadResponse($request, $existing->id, 'هذا الملف مرفوع مسبقاً — هذه نتيجة المعالجة السابقة.');
+            return $this->duplicateResponse($request, $existing->id);
         }
 
+        $path = $file->store('rent/batches', $disk);
         $batch = $this->importService->createBatch($path, $file->getClientOriginalName(), Auth::id());
 
         return $this->uploadResponse($request, $batch->id, 'بدأت المعالجة. يمكنك متابعة التقدّم هنا.');
@@ -65,6 +66,24 @@ class RentAiController extends Controller
         }
 
         return redirect()->to($url)->with('alert.success', $message);
+    }
+
+    /** استجابة الملف المكرّر: لا يُرفع ولا تُنشأ دفعة — رسالة واضحة + رابط النتيجة السابقة. */
+    protected function duplicateResponse(Request $request, int $existingId)
+    {
+        $message = 'هذا الملف مكرّر — سبق رفعه ومعالجته، ولم تتم إضافته مرّة أخرى.';
+        $existingUrl = route('dashboard.rent.ai.batch', $existingId);
+
+        if ($request->ajax() || $request->expectsJson()) {
+            return response()->json([
+                'ok'           => false,
+                'duplicate'    => true,
+                'message'      => $message,
+                'existing_url' => $existingUrl,
+            ], 409);
+        }
+
+        return redirect()->to($existingUrl)->with('alert.error', $message);
     }
 
     public function batch(RentContractImportBatch $batch)

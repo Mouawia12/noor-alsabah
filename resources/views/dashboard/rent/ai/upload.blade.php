@@ -172,9 +172,18 @@
             uploading = false;
             var res=null; try{ res=JSON.parse(xhr.responseText); }catch(err){}
             if(xhr.status>=200 && xhr.status<300 && res && res.redirect){ window.location.href=res.redirect; return; }
+            progress.classList.add('d-none'); actions.classList.remove('d-none');
+            /* ملف مكرّر (409): لم يُرفع — بانر واضح + رابط النتيجة السابقة، بلا انتقال تلقائي */
+            if(res && res.duplicate){
+                errBox.innerHTML = '<div class="alert alert-warning d-flex flex-wrap align-items-center gap-2 mb-0">'
+                    + '<i class="fas fa-copy fs-3"></i><span class="fw-bold">' + (res.message || 'هذا الملف مكرّر ولم يُرفع.') + '</span>'
+                    + (res.existing_url ? ' <a href="' + res.existing_url + '" class="btn btn-sm btn-light-warning ms-auto">عرض النتيجة السابقة</a>' : '')
+                    + '</div>';
+                input.value = '';
+                return;
+            }
             var msg = (res && (res.message || (res.errors && res.errors.document && res.errors.document[0]))) || 'تعذّر رفع الملف، حاول مجدداً.';
             errBox.textContent = msg;
-            progress.classList.add('d-none'); actions.classList.remove('d-none');
         };
         xhr.onerror = function(){ uploading=false; errBox.textContent='انقطع الاتصال أثناء الرفع. تحقّق من الشبكة وحاول مجدداً.';
             progress.classList.add('d-none'); actions.classList.remove('d-none'); };

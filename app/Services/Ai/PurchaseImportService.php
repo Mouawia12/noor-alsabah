@@ -115,7 +115,13 @@ class PurchaseImportService
         if (! is_file($absPath)) {
             return null;
         }
-        return PurchaseImportBatch::where('file_hash', hash_file('sha256', $absPath))->latest()->first();
+        return $this->findByHash(hash_file('sha256', $absPath));
+    }
+
+    /** أول دفعة سابقة بنفس بصمة الملف (لرفض المكرّر قبل تخزينه). */
+    public function findByHash(string $hash): ?PurchaseImportBatch
+    {
+        return PurchaseImportBatch::where('file_hash', $hash)->latest()->first();
     }
 
     /**

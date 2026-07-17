@@ -54,7 +54,7 @@ it('rejects a request with no file', function () {
         ->assertStatus(422);
 });
 
-it('does not create a second batch when the same file is re-uploaded (dedup)', function () {
+it('rejects a duplicate re-upload with a clear message and does NOT store or add it', function () {
     $user = User::factory()->create();
 
     $first = $this->actingAs($user)->postJson(route('dashboard.purchase.ai.store'),
@@ -63,11 +63,15 @@ it('does not create a second batch when the same file is re-uploaded (dedup)', f
 
     $second = $this->actingAs($user)->postJson(route('dashboard.purchase.ai.store'),
         ['document' => UploadedFile::fake()->create('invoices.pdf', 300, 'application/pdf')]);
-    $second->assertOk();
 
-    // نفس الملف (بصمة متطابقة) → لا تُنشأ دفعة ثانية
+    // الملف المكرّر يُرفض بـ409 «مكرّر» ولا يُرسَل redirect (لا انتقال/رفع تلقائي)
+    $second->assertStatus(409)->assertJson(['ok' => false, 'duplicate' => true]);
+    expect($second->json('redirect'))->toBeNull();
+    expect($second->json('existing_url'))->toContain('/purchase/ai/batch/');
+
+    // لا دفعة ثانية، ولا ملف ثانٍ على القرص (لم يُخزَّن أصلاً)
     expect(PurchaseImportBatch::count())->toBe(1);
-    expect($first->json('redirect'))->toBe($second->json('redirect'));
+    expect(Storage::disk(config('ai.disk'))->files('purchase/batches'))->toHaveCount(1);
 });
 
 it('requires authentication to upload', function () {
