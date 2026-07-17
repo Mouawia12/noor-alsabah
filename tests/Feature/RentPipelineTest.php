@@ -117,6 +117,39 @@ it('runs the full rent pipeline and auto-generates the payment schedule', functi
     expect($item->fresh()->status)->toBe(RentContractImportItem::STATUS_APPROVED);
 });
 
+it('processes contracts in realtime via the browser-driven step endpoint (no queue)', function () {
+    fakeRentEngine(new FakeExtractionEngine(
+        data: [
+            'contract_no' => 'C-STEP', 'start_date' => '2026-02-01', 'end_date' => '2026-12-31',
+            'landlord' => 'المالك', 'tenant' => 'المستأجر', 'rent_value' => 60000, 'payments_count' => 6,
+        ],
+        confidence: 0.95,
+    ));
+    fakeRentPages(['/tmp/rc1.png']);
+
+    $batch = plRentBatch();
+    $stepUrl = route('dashboard.rent.ai.batch.step', $batch->id);
+    $user = User::find($batch->create_user);
+
+    // أول خطوة تجهّز العناصر، ثم نكرّر كما يفعل المتصفّح حتى تنتهي
+    $this->actingAs($user)->postJson($stepUrl)
+        ->assertOk()->assertJson(['phase' => 'prepared', 'total_items' => 1, 'done' => false]);
+
+    $last = null;
+    for ($i = 0; $i < 4; $i++) {
+        $last = $this->actingAs($user)->postJson($stepUrl)->assertOk()->json();
+        if ($last['done']) {
+            break;
+        }
+    }
+
+    expect($last['done'])->toBeTrue();
+    $batch->refresh();
+    expect($batch->status)->toBe(RentContractImportBatch::STATUS_COMPLETED);
+    expect(RentContractImportItem::where('batch_id', $batch->id)->first()->status)
+        ->toBe(RentContractImportItem::STATUS_NEEDS_REVIEW);
+});
+
 it('flags a contract whose number already exists as duplicate', function () {
     DB::table('shop_rent')->insert(['contract_no' => 'C-DUP', 'rent_no' => 'C-DUP']);
 

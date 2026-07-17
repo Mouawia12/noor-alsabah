@@ -8,15 +8,15 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * اختبار مسار الرفع: استقبال الملف → إنشاء دفعة → جدولة المعالجة في الخلفية،
- * دون تشغيل معالجة حقيقية (Queue::fake) ودون قرص حقيقي (Storage::fake).
+ * اختبار مسار الرفع: استقبال الملف → إنشاء دفعة «قيد الانتظار» بلا أي جدولة خلفية
+ * (المعالجة صارت لحظية يقودها المتصفّح عبر step)، دون قرص حقيقي (Storage::fake).
  */
 beforeEach(function () {
     Storage::fake(config('ai.disk'));
     Queue::fake();
 });
 
-it('accepts a pdf upload, stores it, creates a batch, and queues background processing', function () {
+it('accepts a pdf upload, stores it, and creates a pending batch WITHOUT background queue', function () {
     $user = User::factory()->create();
     $file = UploadedFile::fake()->create('invoices.pdf', 300, 'application/pdf');
 
@@ -29,10 +29,11 @@ it('accepts a pdf upload, stores it, creates a batch, and queues background proc
     $batch = PurchaseImportBatch::first();
     expect($batch)->not->toBeNull();
     expect($batch->create_user)->toBe($user->id);
+    expect($batch->status)->toBe(PurchaseImportBatch::STATUS_PENDING);
     Storage::disk(config('ai.disk'))->assertExists($batch->file_path);
 
-    // المعالجة جُدولت في الخلفية (لم تُشغَّل الآن)
-    Queue::assertPushed(ProcessPurchaseBatchJob::class);
+    // لا جدولة خلفية إطلاقاً — المعالجة تتم لحظياً من صفحة المتابعة (step)
+    Queue::assertNotPushed(ProcessPurchaseBatchJob::class);
 });
 
 it('rejects a non-allowed file type', function () {

@@ -36,8 +36,8 @@
                     <div class="beam"></div>
                     <div class="ln"></div><div class="ln"></div><div class="ln s"></div><div class="ln"></div><div class="ln s"></div>
                 </div>
-                <div class="fs-4 fw-bold text-gray-800">جارٍ قراءة العقود...</div>
-                <div class="text-gray-500">الذكاء الاصطناعي يستخرج البيانات، يرجى الانتظار قليلاً (تُعالَج في الخلفية)</div>
+                <div class="fs-4 fw-bold text-gray-800" id="procTitle">جارٍ قراءة العقود...</div>
+                <div class="text-gray-500" id="procSub">المعالجة تتم الآن مباشرةً — أبقِ هذه الصفحة مفتوحة حتى تكتمل.</div>
             </div>
 
             <div class="row g-4 mb-2">
@@ -62,10 +62,6 @@
             </div>
 
             <div id="errorBox" class="alert alert-danger mt-5 {{ $batch->error_reason ? '' : 'd-none' }}">{{ $batch->error_reason }}</div>
-            <div id="stuckWarn" class="alert alert-warning mt-5 d-none">
-                <i class="fas fa-triangle-exclamation me-2"></i>
-                لم يبدأ التقدّم منذ فترة. غالباً عامل المعالجة (queue worker) متوقّف على الخادم — يرجى إبلاغ مسؤول النظام لتشغيله. سيُستأنف تلقائياً عند تشغيله.
-            </div>
             {{-- بانر النجاح (يظهر فقط عند اكتمال المعالجة) --}}
             <div id="doneBox" class="mt-5 d-none">
                 <div class="alert alert-success d-flex align-items-center">
@@ -104,17 +100,17 @@
 @section('scripts')
 <script>
 (function () {
-    const url = "{{ route('dashboard.rent.ai.batch.json', $batch->id) }}";
+    // معالجة لحظية يقودها المتصفّح: كل نداء POST لـ step يعالج عقداً واحداً (أو يجهّز الصفحات أول مرّة)
+    // ويُعيد التقدّم، ونكرّر حتى done=true — بلا اعتماد على عامل طابور خلفي قد يتوقّف.
+    const stepUrl = "{{ route('dashboard.rent.ai.batch.step', $batch->id) }}";
+    const CSRF = "{{ csrf_token() }}";
     const STATUS_AR = {!! json_encode(__('ai.status'), JSON_UNESCAPED_UNICODE) !!};
-    // POLL_MS: فترة الاستطلاع، ERR_MS: بعد فشل مؤقت، MAX_NET_ERRORS: سقف أخطاء الاتصال المتتالية، MAX_POLLS: سقف كلّي (≈10 دقائق)
-    const POLL_MS = 3000, ERR_MS = 5000, MAX_NET_ERRORS = 5, MAX_POLLS = 200;
     const el = id => document.getElementById(id);
+    // STEP_GAP: مهلة قصيرة بين خطوتين، ERR_MS: بعد خطأ اتصال، MAX_NET_ERRORS: سقف الأخطاء المتتالية، MAX_POLLS: سقف كلّي احترازي
+    const STEP_GAP = 250, ERR_MS = 4000, MAX_NET_ERRORS = 6, MAX_POLLS = 5000;
+    let stopped = false, netErrors = 0, steps = 0;
 
-    let timer = null, stopped = false, netErrors = 0, polls = 0;
-    function schedule(ms) { if (stopped) return; clearTimeout(timer); timer = setTimeout(poll, ms); }
-    function stop() { stopped = true; clearTimeout(timer); }
-
-    // بانر الاتصال/المهلة: mode='retry' يستأنف الاستطلاع، mode='reload' يعيد تحميل الصفحة
+    function stop() { stopped = true; }
     function showConn(msg, mode) {
         el('connMsg').innerText = msg;
         el('connRetry').classList.toggle('d-none', mode !== 'retry');
@@ -122,6 +118,7 @@
         el('connBox').classList.remove('d-none');
     }
     function hideConn() { el('connBox').classList.add('d-none'); }
+    function next(ms) { if (!stopped) setTimeout(drive, ms); }
 
     function render(d) {
         el('batchStatus').innerText = STATUS_AR[d.status] || d.status;
@@ -130,19 +127,17 @@
         el('failedItems').innerText = d.failed_items;
         const total = d.total_items || 0;
         const done = (d.processed_items || 0) + (d.failed_items || 0);
-        const pct = total > 0 ? Math.round(done / total * 100) : (d.status === 'completed' ? 100 : 0);
-        const bar = el('progressBar');
-        bar.style.width = pct + '%'; bar.innerText = pct + '%';
+        const pct = total > 0 ? Math.round(done / total * 100) : (d.status === 'completed' ? 100 : (d.phase === 'prepared' ? 8 : 3));
+        const bar = el('progressBar'); bar.style.width = pct + '%'; bar.innerText = pct + '%';
+        if (total > 0) { el('procTitle').innerText = 'جارٍ قراءة العقود... (' + done + ' من ' + total + ')'; }
 
-        // فشل الدفعة: بانر خطأ أحمر مميّز + زر إعادة المحاولة (لا رسالة نجاح)
         if (d.status === 'failed') {
             el('processingMsg').classList.add('d-none');
             el('doneBox').classList.add('d-none');
             el('failReason').innerText = d.error_reason || '';
             el('failBox').classList.remove('d-none');
-            return true; // توقف
+            return true;
         }
-        // اكتمال المعالجة: بانر نجاح واضح بالعدد + زر المراجعة
         if (d.status === 'completed') {
             el('processingMsg').classList.add('d-none');
             el('failBox').classList.add('d-none');
@@ -150,35 +145,24 @@
             el('sumAccepted').innerText = d.processed_items || 0;
             el('sumRejected').innerText = d.failed_items || 0;
             el('doneBox').classList.remove('d-none');
-            return true; // توقف
+            return true;
         }
-        // ما زالت قيد المعالجة: أظهر أي سبب/تحذير جزئي إن وُجد
         if (d.error_reason) { const eb = el('errorBox'); eb.classList.remove('d-none'); eb.innerText = d.error_reason; }
         return false;
     }
 
-    // كشف التوقّف: إن لم يتقدّم شيء لفترة (≈24ث) فغالباً عامل الطابور متوقّف
-    var lastDone = -1, stalls = 0;
-    function checkStall(d) {
-        var done = (d.processed_items || 0) + (d.failed_items || 0);
-        if (done !== lastDone) { lastDone = done; stalls = 0; el('stuckWarn').classList.add('d-none'); return; }
-        if (d.status === 'pending' || d.status === 'processing') {
-            stalls++;
-            if (stalls >= 8) el('stuckWarn').classList.remove('d-none');
-        }
-    }
-
-    function poll() {
+    function drive() {
         if (stopped) return;
-        // مهلة كلّية: بدل الدوران للأبد نوقف ونبلّغ المستخدم
-        if (++polls > MAX_POLLS) {
+        if (++steps > MAX_POLLS) {
             stop();
-            showConn('استغرقت المعالجة وقتاً أطول من المتوقع. قد يكون عامل المعالجة متوقّفاً — يمكنك تحديث الصفحة للمتابعة لاحقاً.', 'reload');
+            showConn('استغرقت المعالجة وقتاً أطول من المتوقع. يمكنك تحديث الصفحة للمتابعة.', 'reload');
             return;
         }
-        fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+        fetch(stepUrl, {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
             .then(res => {
-                // انتهاء الجلسة / تحويل لتسجيل الدخول: لا نُبقي المستخدم عالقاً
                 if (res.status === 401 || res.status === 419 || res.redirected) {
                     stop();
                     showConn('انتهت جلستك. يرجى تحديث الصفحة وتسجيل الدخول من جديد لمتابعة الحالة.', 'reload');
@@ -188,37 +172,31 @@
                 return res.json();
             })
             .then(d => {
-                if (!d) return; // عولجت حالة الجلسة أعلاه
+                if (!d) return;
                 netErrors = 0; hideConn();
-                checkStall(d);
-                if (!render(d)) schedule(POLL_MS);
+                const finished = render(d);
+                if (finished || d.done) { stop(); return; }
+                next(STEP_GAP);
             })
             .catch(() => {
-                // فشل شبكة/خادم/JSON: نعيد المحاولة قليلاً ثم نُظهر بانراً واضحاً بدل الدوران الصامت
                 netErrors++;
                 if (netErrors >= MAX_NET_ERRORS) {
                     stop();
-                    showConn('تعذّر الاتصال بالخادم لتحديث حالة المعالجة. تحقّق من الاتصال ثم أعد المحاولة.', 'retry');
+                    showConn('تعذّر الاتصال بالخادم لمتابعة المعالجة. تحقّق من الاتصال ثم أعد المحاولة.', 'retry');
                 } else {
-                    schedule(ERR_MS);
+                    next(ERR_MS);
                 }
             });
     }
 
-    // زر «إعادة المحاولة» في بانر الاتصال: يصفّر العدّادات ويستأنف
     el('connRetry').addEventListener('click', function () {
-        netErrors = 0; polls = 0; stopped = false; hideConn(); poll();
+        netErrors = 0; steps = 0; stopped = false; hideConn(); drive();
     });
     el('connReload').addEventListener('click', function () { location.reload(); });
 
-    // تنظيف المؤقّت عند مغادرة الصفحة، وإيقاف/استئناف عند إخفاء التبويب
     window.addEventListener('pagehide', stop);
-    document.addEventListener('visibilitychange', function () {
-        if (document.hidden) { clearTimeout(timer); }
-        else if (!stopped) { schedule(0); }
-    });
 
-    poll();
+    drive();
 })();
 </script>
 @endsection

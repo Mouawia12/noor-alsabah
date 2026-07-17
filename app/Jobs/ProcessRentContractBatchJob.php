@@ -32,54 +32,9 @@ class ProcessRentContractBatchJob implements ShouldQueue
             return;
         }
 
-        $batch->update(['status' => RentContractImportBatch::STATUS_PROCESSING]);
-
-        try {
-            $disk = config('ai.disk');
-            $absPdf = Storage::disk($disk)->path($batch->file_path);
-            $workDir = Storage::disk($disk)->path('rent/work/' . $batch->id);
-
-            // حدّ أقصى لعدد الصفحات/العقود — حماية من ملف ضخم يُرهق الخادم.
-            $max = (int) config('ai.max_pages_per_batch', 200);
-            if ($max > 0) {
-                try {
-                    $pages = $pdf->pageCount($absPdf);
-                } catch (\Throwable $e) {
-                    $pages = 0;
-                }
-                if ($pages > $max) {
-                    throw new \RuntimeException("الملف يتجاوز الحد الأقصى ({$max} صفحة/عقد). يرجى تقسيمه إلى ملفات أصغر.");
-                }
-            }
-
-            $images = $pdf->rasterizeAll($absPdf, $workDir);
-            if (empty($images)) {
-                throw new \RuntimeException('لم تُنتج أي صور من الملف.');
-            }
-            if ($max > 0 && count($images) > $max) {
-                throw new \RuntimeException("الملف يتجاوز الحد الأقصى ({$max} صفحة/عقد). يرجى تقسيمه إلى ملفات أصغر.");
-            }
-
-            // نضبط العدد الكلي قبل جدولة العناصر: يمنع سباقاً قد يجعل عامل الطابور
-            // يعالج عنصراً ويحدّث العدّادات بينما total_items = 0 (فلا تُغلق الدفعة).
-            $batch->update(['total_items' => count($images)]);
-            AiAuditLog::record('rent_batch', $batch->id, 'pages', ['pages' => count($images)], $batch->create_user);
-
-            // عنصر لكل صفحة (الدمج الذكي يتم بعد الاستخراج) — قوي وقابل للتوسّع
-            foreach ($images as $i => $path) {
-                RentContractImportItem::create([
-                    'batch_id'         => $batch->id,
-                    'page_from'        => $i + 1,
-                    'page_to'          => $i + 1,
-                    'source_file_path' => $path,
-                    'page_hash'        => is_file($path) ? hash_file('sha256', $path) : $path,
-                    'status'           => RentContractImportItem::STATUS_PENDING,
-                ])->each(fn ($item) => ProcessRentContractItemJob::dispatch($item->id));
-            }
-        } catch (\Throwable $e) {
-            $batch->update(['status' => RentContractImportBatch::STATUS_FAILED, 'error_reason' => $e->getMessage()]);
-            AiAuditLog::record('rent_batch', $batch->id, 'failed', ['error' => $e->getMessage()], $batch->create_user);
-            throw $e;
+        // التجزئة موحّدة في الخدمة (يعيد استخدامها المسار اللحظي)، ثم نُجدول معالجة كل عنصر.
+        foreach (app(\App\Services\Ai\RentImportService::class)->prepareItems($batch) as $itemId) {
+            ProcessRentContractItemJob::dispatch($itemId);
         }
     }
 }

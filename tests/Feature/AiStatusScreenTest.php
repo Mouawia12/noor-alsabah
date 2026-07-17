@@ -135,8 +135,7 @@ it('failed status is fully covered by the batchJson contract (error_reason surfa
 
 // ---------- زر إعادة المحاولة → مسار reprocess ----------
 
-it('purchase retry (reprocessBatch) requeues processing and resets counters', function () {
-    Queue::fake();
+it('purchase retry (reprocessBatch) resets counters and redirects to the realtime processing page', function () {
     $user  = User::factory()->create();
     $batch = statusPurchaseBatch($user->id, [
         'status' => 'failed', 'total_items' => 2, 'processed_items' => 0,
@@ -148,11 +147,10 @@ it('purchase retry (reprocessBatch) requeues processing and resets counters', fu
         'page_from' => 1, 'page_to' => 1,
     ]);
 
+    // إعادة المحاولة تُصفّر الدفعة وتحوّل لصفحة المتابعة التي تقود المعالجة لحظياً (بلا طابور)
     $this->actingAs($user)
         ->post(route('dashboard.purchase.ai.batch.reprocess', $batch->id))
-        ->assertRedirect();
-
-    Queue::assertPushed(ProcessPurchaseBatchJob::class);
+        ->assertRedirect(route('dashboard.purchase.ai.batch', $batch->id));
 
     $batch->refresh();
     expect($batch->status)->toBe(PurchaseImportBatch::STATUS_PENDING);
@@ -162,16 +160,14 @@ it('purchase retry (reprocessBatch) requeues processing and resets counters', fu
     expect(PurchaseImportItem::where('batch_id', $batch->id)->count())->toBe(0);
 });
 
-it('rent retry (reprocessBatch) requeues the rent batch job', function () {
-    Queue::fake();
+it('rent retry (reprocessBatch) resets and redirects to the realtime processing page', function () {
     $user  = User::factory()->create();
     $batch = statusRentBatch($user->id, ['status' => 'failed', 'error_reason' => 'خطأ']);
 
     $this->actingAs($user)
         ->post(route('dashboard.rent.ai.batch.reprocess', $batch->id))
-        ->assertRedirect();
+        ->assertRedirect(route('dashboard.rent.ai.batch', $batch->id));
 
-    Queue::assertPushed(ProcessRentContractBatchJob::class);
     expect($batch->fresh()->status)->toBe(RentContractImportBatch::STATUS_PENDING);
 });
 

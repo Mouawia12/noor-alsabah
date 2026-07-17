@@ -102,6 +102,39 @@ it('runs the full purchase pipeline: pages → extract → needs_review → comp
     expect($batch->failed_items)->toBe(0);
 });
 
+it('processes the batch in realtime via the browser-driven step endpoint (no queue)', function () {
+    fakePurchaseEngine(new FakeExtractionEngine(
+        data: ['invoice_no' => 'INV-STEP', 'total' => 500, 'supplier_name' => 'مورد', 'tax_number' => '300000000000003'],
+        confidence: 0.95,
+    ));
+    fakePages(['/tmp/s1.png', '/tmp/s2.png']);
+
+    $batch = plPurchaseBatch();
+    $stepUrl = route('dashboard.purchase.ai.batch.step', $batch->id);
+    $user = \App\Models\User::find($batch->create_user);
+
+    // 1) أول خطوة تجهّز العناصر (تحويل لصور + تقسيم) — لا تُعالج بعد
+    $first = $this->actingAs($user)->postJson($stepUrl);
+    $first->assertOk()->assertJson(['phase' => 'prepared', 'total_items' => 2, 'done' => false]);
+    expect(PurchaseImportItem::where('batch_id', $batch->id)->count())->toBe(2);
+
+    // 2) نكرّر الخطوات كما يفعل المتصفّح حتى تنتهي المعالجة
+    $last = null;
+    for ($i = 0; $i < 5; $i++) {
+        $last = $this->actingAs($user)->postJson($stepUrl)->assertOk()->json();
+        if ($last['done']) {
+            break;
+        }
+    }
+
+    expect($last['done'])->toBeTrue();
+    $batch->refresh();
+    expect($batch->status)->toBe(PurchaseImportBatch::STATUS_COMPLETED);
+    expect($batch->processed_items)->toBe(2);
+    expect(PurchaseImportItem::where('batch_id', $batch->id)
+        ->where('status', PurchaseImportItem::STATUS_NEEDS_REVIEW)->count())->toBe(2);
+});
+
 it('rejects an unreadable invoice with a clear Arabic reason', function () {
     fakePurchaseEngine(new FakeExtractionEngine(
         data: ['invoice_no' => null, 'total' => null, 'supplier_name' => null],

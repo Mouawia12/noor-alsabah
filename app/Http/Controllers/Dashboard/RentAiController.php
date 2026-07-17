@@ -89,6 +89,63 @@ class RentAiController extends Controller
         ]);
     }
 
+    /**
+     * خطوة معالجة لحظية يقودها المتصفّح (بدل الطابور الخلفي):
+     * أول نداء يجهّز العناصر، ثم كل نداء يعالج عقداً واحداً ويُعيد التقدّم حتى done=true.
+     */
+    public function step(Request $request, RentContractImportBatch $batch)
+    {
+        $this->guardAiBatch($batch);
+        @set_time_limit(0);
+
+        if (in_array($batch->status, [RentContractImportBatch::STATUS_COMPLETED, RentContractImportBatch::STATUS_FAILED], true)) {
+            return $this->stepProgress($batch);
+        }
+
+        // 1) تجهيز العناصر أول مرّة (تحويل لصور + تقسيم)
+        if (! $batch->items()->exists()) {
+            try {
+                $this->importService->prepareItems($batch);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('فشل تجهيز دفعة العقود ' . $batch->id . ': ' . $e->getMessage(), ['exception' => $e]);
+            }
+            return $this->stepProgress($batch->fresh(), 'prepared');
+        }
+
+        // 2) عالِج العقد المعلّق التالي لحظياً (آخر عنصر يُشغّل الدمج الذكي تلقائياً)
+        $id = $batch->items()
+            ->where('status', RentContractImportItem::STATUS_PENDING)
+            ->orderBy('page_from')->value('id');
+        if ($id) {
+            try {
+                dispatch_sync(new \App\Jobs\ProcessRentContractItemJob($id));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('تعذّرت معالجة العقد ' . $id . ' لحظياً: ' . $e->getMessage());
+            }
+        }
+
+        return $this->stepProgress($batch->fresh());
+    }
+
+    protected function stepProgress(RentContractImportBatch $batch, ?string $phase = null)
+    {
+        $pending = $batch->items()
+            ->whereIn('status', [RentContractImportItem::STATUS_PENDING, RentContractImportItem::STATUS_PROCESSING])
+            ->count();
+        $terminal = in_array($batch->status, [RentContractImportBatch::STATUS_COMPLETED, RentContractImportBatch::STATUS_FAILED], true);
+
+        return response()->json([
+            'status'          => $batch->status,
+            'total_items'     => $batch->total_items,
+            'processed_items' => $batch->processed_items,
+            'failed_items'    => $batch->failed_items,
+            'error_reason'    => $batch->error_reason,
+            'pending'         => $pending,
+            'phase'           => $phase,
+            'done'            => $terminal || ($batch->total_items > 0 && $pending === 0),
+        ]);
+    }
+
     public function review(Request $request)
     {
         $page_title = 'مراجعة واعتماد العقود المستخرجة';
@@ -137,10 +194,15 @@ class RentAiController extends Controller
     public function reprocess(RentContractImportItem $item)
     {
         $this->guardAiItem($item);
+        @set_time_limit(0);
         $item->update(['status' => RentContractImportItem::STATUS_PENDING, 'error_reason' => null]);
-        \App\Jobs\ProcessRentContractItemJob::dispatch($item->id);
+        try {
+            dispatch_sync(new \App\Jobs\ProcessRentContractItemJob($item->id));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('تعذّرت إعادة معالجة العقد ' . $item->id . ': ' . $e->getMessage());
+        }
 
-        return back()->with('alert.success', 'أُعيدت جدولة معالجة العقد.');
+        return back()->with('alert.success', 'أُعيدت معالجة العقد.');
     }
 
     public function reprocessBatch(RentContractImportBatch $batch)
@@ -148,9 +210,10 @@ class RentAiController extends Controller
         $this->guardAiBatch($batch);
         $batch->items()->delete();
         $batch->update(['status' => RentContractImportBatch::STATUS_PENDING, 'error_reason' => null, 'total_items' => 0, 'processed_items' => 0, 'failed_items' => 0]);
-        \App\Jobs\ProcessRentContractBatchJob::dispatch($batch->id);
 
-        return back()->with('alert.success', 'أُعيدت جدولة معالجة الدفعة.');
+        // صفحة المتابعة تقود المعالجة لحظياً عبر step
+        return redirect()->to(route('dashboard.rent.ai.batch', $batch->id))
+            ->with('alert.success', 'بدأت إعادة المعالجة.');
     }
 
     public function reports()

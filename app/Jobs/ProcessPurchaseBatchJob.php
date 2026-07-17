@@ -33,61 +33,10 @@ class ProcessPurchaseBatchJob implements ShouldQueue
             return;
         }
 
-        $batch->update(['status' => PurchaseImportBatch::STATUS_PROCESSING]);
-
-        try {
-            $disk = config('ai.disk');
-            $absPdf = Storage::disk($disk)->path($batch->file_path);
-            $workDir = Storage::disk($disk)->path('purchase/work/' . $batch->id);
-
-            // حدّ أقصى لعدد الصفحات/الفواتير — حماية من ملف ضخم يُرهق الخادم.
-            // نتحقّق قبل التحويل عند الإمكان (PDF)، ثم بعده كضمان إضافي.
-            $max = (int) config('ai.max_pages_per_batch', 200);
-            if ($max > 0) {
-                try {
-                    $pages = $pdf->pageCount($absPdf);
-                } catch (\Throwable $e) {
-                    $pages = 0; // صورة مفردة أو تعذّر العدّ — نتحقّق بعد التحويل
-                }
-                if ($pages > $max) {
-                    throw new \RuntimeException("الملف يتجاوز الحد الأقصى ({$max} صفحة/فاتورة). يرجى تقسيمه إلى ملفات أصغر.");
-                }
-            }
-
-            $images = $pdf->rasterizeAll($absPdf, $workDir);
-            if (empty($images)) {
-                throw new \RuntimeException('لم تُنتج أي صور من الملف.');
-            }
-            if ($max > 0 && count($images) > $max) {
-                throw new \RuntimeException("الملف يتجاوز الحد الأقصى ({$max} صفحة/فاتورة). يرجى تقسيمه إلى ملفات أصغر.");
-            }
-
-            // نضبط العدد الكلي قبل جدولة العناصر: يمنع سباقاً قد يجعل عامل الطابور
-            // يعالج عنصراً ويحدّث العدّادات بينما total_items = 0 (فلا تُغلق الدفعة).
-            $batch->update(['total_items' => count($images)]);
-            AiAuditLog::record('purchase_batch', $batch->id, 'pages', ['pages' => count($images)], $batch->create_user);
-
-            // عنصر لكل صفحة (الدمج الذكي يتم بعد الاستخراج) — قوي وقابل للتوسّع
-            foreach ($images as $i => $path) {
-                $item = PurchaseImportItem::create([
-                    'batch_id'         => $batch->id,
-                    'page_from'        => $i + 1,
-                    'page_to'          => $i + 1,
-                    'source_file_path' => $path,
-                    'page_hash'        => is_file($path) ? hash_file('sha256', $path) : $path,
-                    'status'           => PurchaseImportItem::STATUS_PENDING,
-                ]);
-                // مهمة واحدة للعنصر المُنشأ للتوّ. (كان ->each() يُمرَّر إلى Eloquent Builder
-                // فيمرّ على كل عناصر الجدول ويُرسل مهمة لكلٍّ منها × عدد الصفحات = تكرار هائل.)
-                ProcessPurchaseItemJob::dispatch($item->id);
-            }
-        } catch (\Throwable $e) {
-            $batch->update([
-                'status'       => PurchaseImportBatch::STATUS_FAILED,
-                'error_reason' => $e->getMessage(),
-            ]);
-            AiAuditLog::record('purchase_batch', $batch->id, 'failed', ['error' => $e->getMessage()], $batch->create_user);
-            throw $e;
+        // التجزئة (تحويل لصور + إنشاء عناصر) موحّدة في الخدمة ليعيد استخدامها المسار اللحظي أيضاً.
+        // ثم نُجدول معالجة كل عنصر (يُستخدم في الاختبارات/التوافق؛ الرفع الفعلي صار لحظياً).
+        foreach (app(\App\Services\Ai\PurchaseImportService::class)->prepareItems($batch) as $itemId) {
+            ProcessPurchaseItemJob::dispatch($itemId);
         }
     }
 }

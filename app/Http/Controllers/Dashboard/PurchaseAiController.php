@@ -82,7 +82,7 @@ class PurchaseAiController extends Controller
         return view('dashboard.purchase.ai.status', compact('page_title', 'batch'));
     }
 
-    /** تقدّم الدفعة (JSON للـ polling). */
+    /** تقدّم الدفعة (JSON) — للتوافق ولإعادة القراءة عند فتح صفحة دفعة مكتملة. */
     public function batchJson(PurchaseImportBatch $batch)
     {
         $this->guardAiBatch($batch);
@@ -93,6 +93,68 @@ class PurchaseAiController extends Controller
             'processed_items' => $batch->processed_items,
             'failed_items'    => $batch->failed_items,
             'error_reason'    => $batch->error_reason,
+        ]);
+    }
+
+    /**
+     * خطوة معالجة لحظية يقودها المتصفّح (بدل الطابور الخلفي):
+     * أول نداء يجهّز العناصر (تحويل لصور + تقسيم)، ثم كل نداء يعالج فاتورة واحدة ويُعيد التقدّم.
+     * المتصفّح يكرّر النداء حتى done=true — فلا اعتماد على عامل طابور قد يتوقّف.
+     */
+    public function step(Request $request, PurchaseImportBatch $batch)
+    {
+        $this->guardAiBatch($batch);
+        @set_time_limit(0); // التجهيز/الاستخراج قد يطول للملفات الكبيرة
+
+        // انتهت أصلاً (اكتملت/فشلت) → أعِد التقدّم فقط
+        if (in_array($batch->status, [PurchaseImportBatch::STATUS_COMPLETED, PurchaseImportBatch::STATUS_FAILED], true)) {
+            return $this->stepProgress($batch);
+        }
+
+        // 1) تجهيز العناصر أول مرّة (تحويل الملف لصور وتقسيمه لفواتير)
+        if (! $batch->items()->exists()) {
+            try {
+                $this->importService->prepareItems($batch);
+            } catch (\Throwable $e) {
+                Log::error('فشل تجهيز دفعة الفواتير ' . $batch->id . ': ' . $e->getMessage(), ['exception' => $e]);
+                // prepareItems ضبطت الحالة=failed وسبب الخطأ
+            }
+            return $this->stepProgress($batch->fresh(), 'prepared');
+        }
+
+        // 2) عالِج الفاتورة المعلّقة التالية لحظياً
+        $id = $batch->items()
+            ->where('status', PurchaseImportItem::STATUS_PENDING)
+            ->orderBy('page_from')->value('id');
+        if ($id) {
+            try {
+                dispatch_sync(new \App\Jobs\ProcessPurchaseItemJob($id));
+            } catch (\Throwable $e) {
+                // العنصر يُعلّم «فشل» داخلياً قبل رمي الاستثناء — نتابع بقية الفواتير
+                Log::warning('تعذّرت معالجة الفاتورة ' . $id . ' لحظياً: ' . $e->getMessage());
+            }
+        }
+
+        return $this->stepProgress($batch->fresh());
+    }
+
+    /** يبني استجابة تقدّم موحّدة تُخبر المتصفّح بالعدّادات وهل انتهت المعالجة. */
+    protected function stepProgress(PurchaseImportBatch $batch, ?string $phase = null)
+    {
+        $pending = $batch->items()
+            ->whereIn('status', [PurchaseImportItem::STATUS_PENDING, PurchaseImportItem::STATUS_PROCESSING])
+            ->count();
+        $terminal = in_array($batch->status, [PurchaseImportBatch::STATUS_COMPLETED, PurchaseImportBatch::STATUS_FAILED], true);
+
+        return response()->json([
+            'status'          => $batch->status,
+            'total_items'     => $batch->total_items,
+            'processed_items' => $batch->processed_items,
+            'failed_items'    => $batch->failed_items,
+            'error_reason'    => $batch->error_reason,
+            'pending'         => $pending,
+            'phase'           => $phase,
+            'done'            => $terminal || ($batch->total_items > 0 && $pending === 0),
         ]);
     }
 
@@ -145,25 +207,31 @@ class PurchaseAiController extends Controller
         return view('dashboard.purchase.ai.failed', compact('page_title', 'items', 'failedBatches'));
     }
 
-    /** إعادة معالجة عنصر فاشل. */
+    /** إعادة معالجة عنصر فاشل — لحظياً (بلا طابور خلفي). */
     public function reprocess(PurchaseImportItem $item)
     {
         $this->guardAiItem($item);
+        @set_time_limit(0);
         $item->update(['status' => PurchaseImportItem::STATUS_PENDING, 'error_reason' => null]);
-        \App\Jobs\ProcessPurchaseItemJob::dispatch($item->id);
+        try {
+            dispatch_sync(new \App\Jobs\ProcessPurchaseItemJob($item->id));
+        } catch (\Throwable $e) {
+            Log::warning('تعذّرت إعادة معالجة الفاتورة ' . $item->id . ': ' . $e->getMessage());
+        }
 
-        return back()->with('alert.success', 'أُعيدت جدولة معالجة الفاتورة.');
+        return back()->with('alert.success', 'أُعيدت معالجة الفاتورة.');
     }
 
-    /** إعادة معالجة دفعة فاشلة بالكامل. */
+    /** إعادة معالجة دفعة فاشلة بالكامل — تُصفَّر ثم تُعالَج لحظياً من صفحة المتابعة. */
     public function reprocessBatch(PurchaseImportBatch $batch)
     {
         $this->guardAiBatch($batch);
         $batch->items()->delete();
         $batch->update(['status' => PurchaseImportBatch::STATUS_PENDING, 'error_reason' => null, 'total_items' => 0, 'processed_items' => 0, 'failed_items' => 0]);
-        \App\Jobs\ProcessPurchaseBatchJob::dispatch($batch->id);
 
-        return back()->with('alert.success', 'أُعيدت جدولة معالجة الدفعة.');
+        // صفحة المتابعة تقود المعالجة لحظياً عبر step (بلا اعتماد على عامل طابور)
+        return redirect()->to(route('dashboard.purchase.ai.batch', $batch->id))
+            ->with('alert.success', 'بدأت إعادة المعالجة.');
     }
 
     /** تقارير وإحصائيات المعالجة. */

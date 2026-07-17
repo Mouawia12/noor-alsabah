@@ -327,6 +327,7 @@ Route::group([
         Route::get('/purchase/ai/review/export', [PurchaseAiController::class, 'exportReview'])->name('purchase.ai.review.export');
         Route::get('/purchase/ai/batch/{batch}', [PurchaseAiController::class, 'batch'])->name('purchase.ai.batch');
         Route::get('/purchase/ai/batch/{batch}/json', [PurchaseAiController::class, 'batchJson'])->name('purchase.ai.batch.json');
+        Route::post('/purchase/ai/batch/{batch}/step', [PurchaseAiController::class, 'step'])->name('purchase.ai.batch.step');
         Route::get('/purchase/ai/item/{item}/image/{page?}', [PurchaseAiController::class, 'image'])->name('purchase.ai.image');
         Route::get('/purchase/ai/failed', [PurchaseAiController::class, 'failed'])->name('purchase.ai.failed');
         // إدارة أكواد المحلات
@@ -354,6 +355,7 @@ Route::group([
         Route::get('/rent/ai/review/export', [RentAiController::class, 'exportReview'])->name('rent.ai.review.export');
         Route::get('/rent/ai/batch/{batch}', [RentAiController::class, 'batch'])->name('rent.ai.batch');
         Route::get('/rent/ai/batch/{batch}/json', [RentAiController::class, 'batchJson'])->name('rent.ai.batch.json');
+        Route::post('/rent/ai/batch/{batch}/step', [RentAiController::class, 'step'])->name('rent.ai.batch.step');
         Route::get('/rent/ai/item/{item}/image/{page?}', [RentAiController::class, 'image'])->name('rent.ai.image');
         Route::get('/rent/ai/failed', [RentAiController::class, 'failed'])->name('rent.ai.failed');
         Route::get('/rent/ai/reports', [RentAiController::class, 'reports'])->name('rent.ai.reports');

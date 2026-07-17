@@ -2,7 +2,6 @@
 
 namespace App\Services\Ai;
 
-use App\Jobs\ProcessRentContractBatchJob;
 use App\Models\AiAuditLog;
 use App\Models\RentContractImportBatch;
 use App\Models\RentContractImportItem;
@@ -33,9 +32,73 @@ class RentImportService
         ]);
 
         AiAuditLog::record('rent_batch', $batch->id, 'created', ['file' => $originalName], $userId);
-        ProcessRentContractBatchJob::dispatch($batch->id);
 
+        // لا جدولة خلفية: المعالجة لحظية يقودها المتصفّح عبر endpoint المعالجة (step).
         return $batch;
+    }
+
+    /**
+     * تجهيز عناصر دفعة العقود لحظياً: تحويل لصور، فحص الحد الأقصى، وإنشاء عنصر «قيد الانتظار»
+     * لكل صفحة — دون جدولة خلفية. تُعيد معرّفات العناصر لمعالجتها تباعاً. تُستدعى مرّة لكل دفعة.
+     *
+     * @return int[]
+     */
+    public function prepareItems(RentContractImportBatch $batch): array
+    {
+        if ($batch->items()->exists()) {
+            return [];
+        }
+
+        $batch->update(['status' => RentContractImportBatch::STATUS_PROCESSING, 'error_reason' => null]);
+
+        try {
+            $pdf = app(PdfService::class);
+            $disk = config('ai.disk');
+            $absPdf = Storage::disk($disk)->path($batch->file_path);
+            $workDir = Storage::disk($disk)->path('rent/work/' . $batch->id);
+
+            $max = (int) config('ai.max_pages_per_batch', 200);
+            if ($max > 0) {
+                try {
+                    $pages = $pdf->pageCount($absPdf);
+                } catch (\Throwable $e) {
+                    $pages = 0;
+                }
+                if ($pages > $max) {
+                    throw new \RuntimeException("الملف يتجاوز الحد الأقصى ({$max} صفحة/عقد). يرجى تقسيمه إلى ملفات أصغر.");
+                }
+            }
+
+            $images = $pdf->rasterizeAll($absPdf, $workDir);
+            if (empty($images)) {
+                throw new \RuntimeException('لم تُنتج أي صور من الملف.');
+            }
+            if ($max > 0 && count($images) > $max) {
+                throw new \RuntimeException("الملف يتجاوز الحد الأقصى ({$max} صفحة/عقد). يرجى تقسيمه إلى ملفات أصغر.");
+            }
+
+            $batch->update(['total_items' => count($images)]);
+            AiAuditLog::record('rent_batch', $batch->id, 'pages', ['pages' => count($images)], $batch->create_user);
+
+            $ids = [];
+            foreach ($images as $i => $path) {
+                $item = RentContractImportItem::create([
+                    'batch_id'         => $batch->id,
+                    'page_from'        => $i + 1,
+                    'page_to'          => $i + 1,
+                    'source_file_path' => $path,
+                    'page_hash'        => is_file($path) ? hash_file('sha256', $path) : $path,
+                    'status'           => RentContractImportItem::STATUS_PENDING,
+                ]);
+                $ids[] = $item->id;
+            }
+
+            return $ids;
+        } catch (\Throwable $e) {
+            $batch->update(['status' => RentContractImportBatch::STATUS_FAILED, 'error_reason' => $e->getMessage()]);
+            AiAuditLog::record('rent_batch', $batch->id, 'failed', ['error' => $e->getMessage()], $batch->create_user);
+            throw $e;
+        }
     }
 
     public function findExistingByHash(string $absPath): ?RentContractImportBatch

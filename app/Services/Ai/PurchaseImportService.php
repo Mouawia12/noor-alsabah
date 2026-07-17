@@ -2,7 +2,6 @@
 
 namespace App\Services\Ai;
 
-use App\Jobs\ProcessPurchaseBatchJob;
 use App\Models\AiAuditLog;
 use App\Models\PurchaseImportBatch;
 use App\Models\PurchaseImportItem;
@@ -36,9 +35,78 @@ class PurchaseImportService
 
         AiAuditLog::record('purchase_batch', $batch->id, 'created', ['file' => $originalName], $userId);
 
-        ProcessPurchaseBatchJob::dispatch($batch->id);
-
+        // لا جدولة خلفية: المعالجة تتم لحظياً يقودها المتصفّح عبر endpoint المعالجة (step).
         return $batch;
+    }
+
+    /**
+     * تجهيز عناصر الدفعة لحظياً: تحويل الملف لصور، فحص الحد الأقصى، وإنشاء عنصر «قيد الانتظار»
+     * لكل صفحة — دون جدولة أي مهمة خلفية. تُعيد معرّفات العناصر المُنشأة لمعالجتها تباعاً.
+     * تُستدعى مرّة واحدة لكل دفعة (الاستدعاء المتكرر بلا صور جديدة يُعيد قائمة فارغة).
+     *
+     * @return int[] معرّفات العناصر المُنشأة
+     */
+    public function prepareItems(PurchaseImportBatch $batch): array
+    {
+        // لا تُعِد التجزئة إن سبق إنشاء عناصر لهذه الدفعة (حماية من نداء step مكرّر).
+        if ($batch->items()->exists()) {
+            return [];
+        }
+
+        $batch->update(['status' => PurchaseImportBatch::STATUS_PROCESSING, 'error_reason' => null]);
+
+        try {
+            $pdf = app(PdfService::class);
+            $disk = config('ai.disk');
+            $absPdf = Storage::disk($disk)->path($batch->file_path);
+            $workDir = Storage::disk($disk)->path('purchase/work/' . $batch->id);
+
+            // حدّ أقصى لعدد الصفحات/الفواتير — حماية من ملف ضخم يُرهق الخادم.
+            $max = (int) config('ai.max_pages_per_batch', 200);
+            if ($max > 0) {
+                try {
+                    $pages = $pdf->pageCount($absPdf);
+                } catch (\Throwable $e) {
+                    $pages = 0; // صورة مفردة أو تعذّر العدّ — نتحقّق بعد التحويل
+                }
+                if ($pages > $max) {
+                    throw new \RuntimeException("الملف يتجاوز الحد الأقصى ({$max} صفحة/فاتورة). يرجى تقسيمه إلى ملفات أصغر.");
+                }
+            }
+
+            $images = $pdf->rasterizeAll($absPdf, $workDir);
+            if (empty($images)) {
+                throw new \RuntimeException('لم تُنتج أي صور من الملف.');
+            }
+            if ($max > 0 && count($images) > $max) {
+                throw new \RuntimeException("الملف يتجاوز الحد الأقصى ({$max} صفحة/فاتورة). يرجى تقسيمه إلى ملفات أصغر.");
+            }
+
+            $batch->update(['total_items' => count($images)]);
+            AiAuditLog::record('purchase_batch', $batch->id, 'pages', ['pages' => count($images)], $batch->create_user);
+
+            $ids = [];
+            foreach ($images as $i => $path) {
+                $item = PurchaseImportItem::create([
+                    'batch_id'         => $batch->id,
+                    'page_from'        => $i + 1,
+                    'page_to'          => $i + 1,
+                    'source_file_path' => $path,
+                    'page_hash'        => is_file($path) ? hash_file('sha256', $path) : $path,
+                    'status'           => PurchaseImportItem::STATUS_PENDING,
+                ]);
+                $ids[] = $item->id;
+            }
+
+            return $ids;
+        } catch (\Throwable $e) {
+            $batch->update([
+                'status'       => PurchaseImportBatch::STATUS_FAILED,
+                'error_reason' => $e->getMessage(),
+            ]);
+            AiAuditLog::record('purchase_batch', $batch->id, 'failed', ['error' => $e->getMessage()], $batch->create_user);
+            throw $e;
+        }
     }
 
     /** هل سبق رفع نفس الملف (بصمة مطابقة)؟ */
