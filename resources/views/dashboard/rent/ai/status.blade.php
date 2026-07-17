@@ -110,7 +110,13 @@
     const STEP_GAP = 200, ERR_MS = 4000, MAX_NET_ERRORS = 6, MAX_POLLS = 5000;
     let stopped = false, netErrors = 0, steps = 0;
     // حالة الشريط: يزحف بسلاسة نحو «سقف» العنصر الجاري (capPct) حتى أثناء انتظار الاستخراج الطويل
-    let total = 0, doneCount = 0, shownPct = 0, capPct = 8, creepTimer = null;
+    let total = 0, doneCount = 0, shownPct = 0, capPct = 8, creepTimer = null, busyTimer = null;
+    // إن لم يصل أي ردّ خلال 12ث والإجمالي ما زال 0، فالخادم غالباً مشغول بملف آخر (خادم التطوير أحادي الخيط)
+    busyTimer = setTimeout(function(){
+        if (total === 0 && !stopped) {
+            el('procSub').innerText = 'يبدو أن الخادم مشغول بمعالجة ملف آخر — ستبدأ معالجة هذا الملف تلقائياً عند توفّره. (لتسريعها: أغلق تبويبات المعالجة الأخرى.)';
+        }
+    }, 12000);
 
     function setBar(p){ p = Math.max(0, Math.min(100, p)); var b = el('progressBar'); b.style.width = p.toFixed(0) + '%'; b.innerText = p.toFixed(0) + '%'; }
     function startCreep(){
@@ -140,6 +146,7 @@
         el('failedItems').innerText = d.failed_items;
         total = d.total_items || 0;
         doneCount = (d.processed_items || 0) + (d.failed_items || 0);
+        if (total > 0 && busyTimer) { clearTimeout(busyTimer); busyTimer = null; } // وصل التجهيز → أزل تلميح «الخادم مشغول»
 
         if (d.status === 'failed') {
             stopCreep();
