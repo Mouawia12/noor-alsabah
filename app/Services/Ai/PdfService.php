@@ -16,8 +16,11 @@ class PdfService
     /** هل تتوفّر أي وسيلة لتحويل PDF إلى صور؟ */
     public static function canRasterize(): bool
     {
-        return self::bin('pdftoppm') || self::bin('magick') || self::bin('convert')
-            || extension_loaded('imagick') || self::bin('gs');
+        // أدوات CLI بلا فائدة إن كانت exec معطّلة؛ يبقى امتداد Imagick صالحاً دائماً.
+        $canExec = function_exists('exec');
+
+        return ($canExec && (self::bin('pdftoppm') || self::bin('magick') || self::bin('convert') || self::bin('gs')))
+            || extension_loaded('imagick');
     }
 
     /** عدد صفحات ملف PDF. */
@@ -67,27 +70,36 @@ class PdfService
             mkdir($outDir, 0775, true);
         }
 
+        // أدوات CLI تحتاج exec()؛ بعض الاستضافات المحصّنة (Hestia) تعطّلها → نتخطّاها
+        // لامتداد Imagick الذي لا يحتاج أي shell. (بدون هذا الحارس ينهار الكود بـ
+        // «Call to undefined function exec()» فور إيجاد pdftoppm في PATH.)
+        $canExec = function_exists('exec');
+
         // 1) pdftoppm — الأفضل (لا يحتاج Ghostscript)
-        if ($bin = self::bin('pdftoppm')) {
+        if ($canExec && ($bin = self::bin('pdftoppm'))) {
             return $this->viaPdftoppm($bin, $pdfPath, $outDir, $dpi);
         }
 
         // 2) magick / convert (ImageMagick CLI)
-        if (($bin = self::bin('magick')) || ($bin = self::bin('convert'))) {
+        if ($canExec && (($bin = self::bin('magick')) || ($bin = self::bin('convert')))) {
             return $this->viaMagickCli($bin, $pdfPath, $outDir, $dpi);
         }
 
-        // 3) امتداد Imagick
+        // 3) امتداد Imagick (لا يحتاج exec) — المسار المفضّل على الاستضافات التي تعطّل exec
         if (extension_loaded('imagick')) {
             return $this->viaImagickExt($pdfPath, $outDir, $dpi);
         }
 
         // 4) Ghostscript
-        if ($bin = self::bin('gs')) {
+        if ($canExec && ($bin = self::bin('gs'))) {
             return $this->viaGhostscript($bin, $pdfPath, $outDir, $dpi);
         }
 
-        throw new RuntimeException('لا تتوفّر أي أداة لتحويل PDF إلى صور (pdftoppm/magick/imagick/gs).');
+        throw new RuntimeException(
+            $canExec
+                ? 'لا تتوفّر أي أداة لتحويل PDF إلى صور (pdftoppm/magick/imagick/gs).'
+                : 'دالة exec معطّلة على الخادم، ولا يوجد امتداد PHP Imagick. ثبّت امتداد Imagick + Ghostscript، أو فعّل exec في disable_functions.'
+        );
     }
 
     protected function viaPdftoppm(string $bin, string $pdf, string $outDir, int $dpi): array
