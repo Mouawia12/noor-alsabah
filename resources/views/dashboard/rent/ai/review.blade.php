@@ -82,13 +82,20 @@
             })
             .catch(function(){ location.reload(); });
     }
-    /* بحث بالكتابة (بالاسم أو الكود) على قوائم المحل في كل صف عبر Select2 */
+    /* بحث بالكتابة (بالاسم أو الكود) على قوائم المحل في كل صف عبر Select2.
+       مهم: dropdownParent=body حتى لا تُقصّ قائمة الخيارات داخل جدول ذي overflow (كانت تظهر فارغة). */
     function initRowSelects(){
         if (window.jQuery && jQuery.fn && jQuery.fn.select2) {
             jQuery('.row-shop').each(function(){
-                if (!jQuery(this).hasClass('select2-hidden-accessible')) {
-                    jQuery(this).select2({ placeholder:'ابحث بالاسم أو الكود...', dir:'rtl', width:'180px', allowClear:true });
-                }
+                var $s = jQuery(this);
+                if ($s.hasClass('select2-hidden-accessible')) { $s.select2('destroy'); }
+                $s.select2({
+                    placeholder: 'ابحث بالاسم أو الكود...',
+                    dir: 'rtl',
+                    width: '100%',
+                    allowClear: true,
+                    dropdownParent: jQuery('body')
+                });
             });
         }
     }
