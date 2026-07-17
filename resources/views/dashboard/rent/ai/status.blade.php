@@ -5,82 +5,108 @@
 
 @section('styles')
 <style>
-    .scan-doc{width:96px;height:120px;margin:0 auto;position:relative;border-radius:8px;background:#fff;
-        box-shadow:0 6px 18px rgba(114,57,234,.15);border:1px solid #e6ebf2;overflow:hidden}
-    .scan-doc .ln{height:6px;background:#e6ebf2;border-radius:3px;margin:12px 12px 0}
-    .scan-doc .ln.s{width:55%}
-    .scan-doc .beam{position:absolute;left:0;right:0;height:26px;top:-26px;
-        background:linear-gradient(180deg,rgba(114,57,234,0) 0%,rgba(114,57,234,.35) 60%,rgba(114,57,234,.55) 100%);
-        animation:scan 1.6s ease-in-out infinite}
-    @keyframes scan{0%{top:-26px}100%{top:120px}}
+    .proc-wrap{max-width:880px;margin-inline:auto}
+    .proc-doc{width:78px;height:98px;margin-inline:auto;position:relative;border-radius:10px;background:#fff;
+        box-shadow:0 10px 26px rgba(114,57,234,.18);border:1px solid #eef0f4;overflow:hidden}
+    .proc-doc .ln{height:6px;background:#eceef4;border-radius:3px;margin:11px 11px 0}
+    .proc-doc .ln.s{width:52%}
+    .proc-doc .beam{position:absolute;left:0;right:0;height:22px;top:-22px;
+        background:linear-gradient(180deg,rgba(114,57,234,0) 0%,rgba(114,57,234,.4) 60%,rgba(114,57,234,.55) 100%);
+        animation:scan 1.5s ease-in-out infinite}
+    @keyframes scan{0%{top:-22px}100%{top:98px}}
+    .proc-pct{font-size:2.6rem;line-height:1;font-weight:800}
+    .proc-tile{border:1px solid #eef0f4;border-radius:14px;padding:1.15rem .75rem;text-align:center;height:100%}
+    @media (max-width:576px){ .proc-pct{font-size:2rem} }
+    @keyframes pop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+    .proc-pop{animation:pop .45s ease-out}
 </style>
 @endsection
 
 @section('content')
+<div class="proc-wrap">
 
     @if (session()->has('alert.success'))
         <div class="alert alert-success">{{ session('alert.success') }}</div>
     @endif
 
-    <div class="card mb-5">
-        <div class="card-header">
-            <h3 class="card-title">معالجة الملف: {{ $batch->original_filename }}</h3>
-            <div class="card-toolbar"><span id="batchStatus" class="badge badge-light-primary fs-6">{{ __('ai.status.'.$batch->status) }}</span></div>
-        </div>
-        <div class="card-body">
-            <div class="progress h-25px mb-5">
-                <div id="progressBar" class="progress-bar bg-primary fw-bold progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">0%</div>
+    <div class="card shadow-sm">
+        <div class="card-body p-5 p-lg-8">
+            {{-- الترويسة --}}
+            <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-7">
+                <div class="me-auto">
+                    <div class="text-muted fs-8 text-uppercase mb-1">معالجة ملف العقود</div>
+                    <h2 class="fw-bold text-gray-900 mb-0" style="word-break:break-word">{{ $batch->original_filename }}</h2>
+                </div>
+                <span id="batchStatus" class="badge badge-light-primary fs-6 px-4 py-2 flex-shrink-0">{{ __('ai.status.'.$batch->status) }}</span>
             </div>
-            <div id="processingMsg" class="text-center py-6 {{ in_array($batch->status, ['completed','failed']) ? 'd-none' : '' }}">
-                <div class="scan-doc mb-4">
+
+            {{-- منطقة التقدّم (تختفي عند الاكتمال/الفشل) --}}
+            <div id="processingMsg" class="{{ in_array($batch->status, ['completed','failed']) ? 'd-none' : '' }}">
+                <div class="d-flex align-items-end justify-content-between mb-2">
+                    <div id="procTitle" class="fw-bold fs-4 text-gray-800">جارٍ التحضير...</div>
+                    <div id="pctLabel" class="proc-pct text-primary">0%</div>
+                </div>
+                <div class="progress h-15px rounded-pill mb-2" style="background:#eef1f8">
+                    <div id="progressBar" class="progress-bar bg-primary progress-bar-striped progress-bar-animated rounded-pill" role="progressbar" style="width: 0%"></div>
+                </div>
+                <div id="procSub" class="text-muted fs-7 mb-7">المعالجة تتم الآن مباشرةً — أبقِ هذه الصفحة مفتوحة حتى تكتمل.</div>
+
+                <div class="proc-doc mb-2">
                     <div class="beam"></div>
                     <div class="ln"></div><div class="ln"></div><div class="ln s"></div><div class="ln"></div><div class="ln s"></div>
                 </div>
-                <div class="fs-4 fw-bold text-gray-800" id="procTitle">جارٍ قراءة العقود...</div>
-                <div class="text-gray-500" id="procSub">المعالجة تتم الآن مباشرةً — أبقِ هذه الصفحة مفتوحة حتى تكتمل.</div>
             </div>
 
-            <div class="row g-4 mb-2">
-                <div class="col-4">
-                    <div class="bg-light-primary rounded p-4 text-center">
+            {{-- عدّادات (ريسبونسيف: تتراص عمودياً على الجوال) --}}
+            <div class="row g-3 mt-2">
+                <div class="col-12 col-sm-4">
+                    <div class="proc-tile bg-light-primary">
                         <div class="fs-2 fw-bolder text-primary" id="totalItems">{{ $batch->total_items }}</div>
-                        <div class="fs-7 text-gray-700">إجمالي العقود</div>
+                        <div class="fs-8 fw-semibold text-gray-700">إجمالي العقود</div>
                     </div>
                 </div>
-                <div class="col-4">
-                    <div class="bg-light-success rounded p-4 text-center">
+                <div class="col-12 col-sm-4">
+                    <div class="proc-tile bg-light-success">
                         <div class="fs-2 fw-bolder text-success" id="processedItems">{{ $batch->processed_items }}</div>
-                        <div class="fs-7 text-gray-700"><i class="fas fa-check me-1"></i>مقروءة</div>
+                        <div class="fs-8 fw-semibold text-gray-700"><i class="fas fa-check me-1"></i>مقروءة</div>
                     </div>
                 </div>
-                <div class="col-4">
-                    <div class="bg-light-danger rounded p-4 text-center">
+                <div class="col-12 col-sm-4">
+                    <div class="proc-tile bg-light-danger">
                         <div class="fs-2 fw-bolder text-danger" id="failedItems">{{ $batch->failed_items }}</div>
-                        <div class="fs-7 text-gray-700"><i class="fas fa-times me-1"></i>فاشلة</div>
+                        <div class="fs-8 fw-semibold text-gray-700"><i class="fas fa-times me-1"></i>فاشلة</div>
                     </div>
                 </div>
             </div>
 
             <div id="errorBox" class="alert alert-danger mt-5 {{ $batch->error_reason ? '' : 'd-none' }}">{{ $batch->error_reason }}</div>
-            {{-- بانر النجاح (يظهر فقط عند اكتمال المعالجة) --}}
-            <div id="doneBox" class="mt-5 d-none">
-                <div class="alert alert-success d-flex align-items-center">
-                    <i class="fas fa-check-circle fs-2 me-3"></i>
-                    <span><b>تمت معالجة العقود بنجاح</b> — تمّت معالجة <b id="sumTotal">0</b> عقد: <b id="sumAccepted">0</b> جاهز للمراجعة و<b id="sumRejected">0</b> فاشل.</span>
+
+            {{-- حالة الاكتمال: رسالة نجاح + أزرار انتقال للمراجعة والاعتماد --}}
+            <div id="doneBox" class="d-none mt-7 text-center">
+                <div class="proc-pop mb-3"><i class="fas fa-circle-check text-success" style="font-size:3.6rem"></i></div>
+                <h2 class="fw-bold text-gray-900 mb-2">تمت معالجة العقود بنجاح ✓</h2>
+                <div class="text-muted fs-5 mb-6">
+                    تمّت معالجة <b class="text-gray-900" id="sumTotal">0</b> عقد —
+                    <b class="text-success" id="sumAccepted">0</b> جاهز للمراجعة
+                    و<b class="text-danger" id="sumRejected">0</b> فاشل.
                 </div>
-                <a href="{{ route('dashboard.rent.ai.review', ['batch_id' => $batch->id]) }}" class="btn btn-success"><i class="fas fa-check-double me-1"></i>مراجعة واعتماد العقود</a>
+                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                    <a href="{{ route('dashboard.rent.ai.review', ['batch_id' => $batch->id]) }}" class="btn btn-success btn-lg"><i class="fas fa-check-double me-2"></i>مراجعة واعتماد العقود</a>
+                    <a href="{{ route('dashboard.rent.ai.reports') }}" class="btn btn-light-primary btn-lg"><i class="fas fa-chart-simple me-2"></i>التقارير والإحصائيات</a>
+                </div>
             </div>
 
-            {{-- بانر الفشل (يظهر فقط عند فشل معالجة الدفعة) مع زر إعادة المحاولة --}}
-            <div id="failBox" class="mt-5 d-none">
-                <div class="alert alert-danger d-flex align-items-center">
-                    <i class="fas fa-circle-exclamation fs-2 me-3"></i>
-                    <span><b>تعذّرت معالجة الملف.</b> <span id="failReason"></span></span>
+            {{-- حالة الفشل: رسالة + إعادة المحاولة --}}
+            <div id="failBox" class="d-none mt-7 text-center">
+                <div class="mb-3"><i class="fas fa-circle-exclamation text-danger" style="font-size:3.2rem"></i></div>
+                <h3 class="fw-bold text-gray-900 mb-2">تعذّرت معالجة الملف</h3>
+                <div class="text-muted fs-6 mb-5" id="failReason"></div>
+                <div class="d-grid d-sm-flex justify-content-sm-center">
+                    <form method="POST" action="{{ route('dashboard.rent.ai.batch.reprocess', $batch->id) }}">
+                        @csrf
+                        <button type="submit" class="btn btn-danger btn-lg"><i class="fas fa-rotate-right me-2"></i>إعادة المحاولة</button>
+                    </form>
                 </div>
-                <form method="POST" action="{{ route('dashboard.rent.ai.batch.reprocess', $batch->id) }}" class="d-inline">
-                    @csrf
-                    <button type="submit" class="btn btn-danger"><i class="fas fa-rotate-right me-1"></i>إعادة المحاولة</button>
-                </form>
             </div>
 
             {{-- بانر انقطاع الاتصال / انتهاء المهلة --}}
@@ -94,7 +120,7 @@
             </div>
         </div>
     </div>
-
+</div>
 @endsection
 
 @section('scripts')
@@ -118,7 +144,7 @@
         }
     }, 12000);
 
-    function setBar(p){ p = Math.max(0, Math.min(100, p)); var b = el('progressBar'); b.style.width = p.toFixed(0) + '%'; b.innerText = p.toFixed(0) + '%'; }
+    function setBar(p){ p = Math.max(0, Math.min(100, p)); el('progressBar').style.width = p.toFixed(0) + '%'; var l = el('pctLabel'); if (l) { l.innerText = p.toFixed(0) + '%'; } }
     function startCreep(){
         if (creepTimer || stopped) return;
         creepTimer = setInterval(function(){
