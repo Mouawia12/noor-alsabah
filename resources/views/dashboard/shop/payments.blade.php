@@ -71,9 +71,10 @@
                     $instLabel = fn($n) => $n ? ('الدفعة ' . ($ord[$n] ?? ('رقم ' . $n))) : '—';
                 @endphp
                 <div class="table-responsive"><table class="table table-row-bordered align-middle">
-                    <thead><tr class="fw-bold text-gray-800 bg-light"><th>رقم السند</th><th>الدفعة</th><th>المبلغ</th><th>التاريخ</th><th>الطريقة</th></tr></thead>
+                    <thead><tr class="fw-bold text-gray-800 bg-light"><th>رقم السند</th><th>الدفعة</th><th>المبلغ</th><th>التاريخ</th><th>الطريقة</th><th>طباعة</th></tr></thead>
                     <tbody>@foreach($c['receipts'] as $r)
-                        <tr><td class="fw-bold">{{ $r->receipt_no }}</td><td><span class="badge badge-light-info">{{ $instLabel(optional($r->payment)->seq_no) }}</span></td><td>{{ number_format($r->amount,2) }}</td><td>{{ optional($r->paid_at)->format('Y-m-d') }}</td><td>{{ $r->method ?? '—' }}</td></tr>
+                        <tr><td class="fw-bold">{{ $r->receipt_no }}</td><td><span class="badge badge-light-info">{{ $instLabel(optional($r->payment)->seq_no) }}</span></td><td>{{ number_format($r->amount,2) }}</td><td>{{ optional($r->paid_at)->format('Y-m-d') }}</td><td>{{ $r->method ?? '—' }}</td>
+                        <td><a href="{{ route('dashboard.shop.receipt.pdf', $r->receipt_id) }}" target="_blank" class="btn btn-sm btn-light-primary py-1"><i class="fas fa-print me-1"></i>سند PDF</a></td></tr>
                     @endforeach</tbody>
                 </table></div>
             @endif

@@ -418,4 +418,36 @@ class RentAiController extends Controller
         }
         return back()->with('alert.success', 'تم رفض العقد.');
     }
+
+    /**
+     * حذف عقد من قائمة «بانتظار المراجعة» عند الحاجة، مع تسجيل عملية الحذف في سجل التدقيق (المستخدم).
+     * مقصور على العناصر التي لم تُعتمد بعد (needs_review) حتى لا يُمسّ أي عقد مُرحّل.
+     */
+    public function destroy(Request $request, RentContractImportItem $item)
+    {
+        $this->guardAiItem($item);
+
+        if ($item->status !== RentContractImportItem::STATUS_NEEDS_REVIEW) {
+            $msg = 'لا يمكن حذف عقد مُعتمد أو غير معلّق.';
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['ok' => false, 'message' => $msg], 422);
+            }
+            return back()->with('alert.error', $msg);
+        }
+
+        // سجّل عملية الحذف (من، ماذا، متى) قبل الحذف الفعلي
+        $d = $item->extracted_json['data'] ?? [];
+        \App\Models\AiAuditLog::record('rent_item', $item->id, 'deleted', [
+            'contract_no' => $d['contract_no'] ?? null,
+            'landlord'    => $d['landlord'] ?? null,
+            'file'        => $item->batch->original_filename ?? null,
+        ], Auth::id());
+
+        $item->delete();
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(['ok' => true, 'message' => 'تم حذف العقد من قائمة الانتظار.', 'item_id' => $item->id]);
+        }
+        return back()->with('alert.success', 'تم حذف العقد من قائمة الانتظار.');
+    }
 }

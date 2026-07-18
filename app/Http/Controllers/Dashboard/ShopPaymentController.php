@@ -222,6 +222,76 @@ class ShopPaymentController extends Controller
         return $this->exportData('التقرير_المالي_' . ($shopRow->shop_name ?? $shop), $summary, $rows, $header, $format);
     }
 
+    /** طباعة سند القبض بصيغة PDF: يتضمّن اسم الموظف الذي أضافه + تاريخ ووقت الإضافة. */
+    public function receiptPdf(int $receipt)
+    {
+        $r = ShopReceipt::with('payment:rentpay_id,seq_no')->find($receipt);
+        abort_if(! $r, 404, 'السند غير موجود.');
+
+        $shop = DB::table('shop')->where('shop_id', $r->shop_id)->first();
+        $contract = Shop_rent::find($r->shop_rent_id);
+        $employee = $r->create_user ? \App\Models\User::where('id', $r->create_user)->value('name') : null;
+
+        $ord = [1 => 'الأولى', 2 => 'الثانية', 3 => 'الثالثة', 4 => 'الرابعة', 5 => 'الخامسة', 6 => 'السادسة',
+                7 => 'السابعة', 8 => 'الثامنة', 9 => 'التاسعة', 10 => 'العاشرة', 11 => 'الحادية عشرة', 12 => 'الثانية عشرة'];
+        $seq = optional($r->payment)->seq_no;
+        $inst = $seq ? ('الدفعة ' . ($ord[$seq] ?? ('رقم ' . $seq))) : '—';
+
+        $rows = [
+            ['رقم السند', $r->receipt_no],
+            ['التاريخ والوقت', optional($r->created_at)->format('Y-m-d H:i') ?? '—'],
+            ['الموظف المُصدِر', $employee ?? '—'],
+            ['المحل / الفرع', ($shop->shop_name ?? '—') . (! empty($shop->shop_code) ? ' (' . $shop->shop_code . ')' : '')],
+            ['رقم العقد', $contract->contract_no ?? $contract->rent_no ?? '—'],
+            ['المستأجر', $contract->tenant ?? '—'],
+            ['الدفعة', $inst],
+            ['المبلغ المقبوض', number_format((float) $r->amount, 2) . ' ريال'],
+            ['طريقة الدفع', $r->method ?? '—'],
+            ['تاريخ القبض', optional($r->paid_at)->format('Y-m-d') ?? '—'],
+            ['ملاحظات', $r->note ?? '—'],
+        ];
+
+        $pdf = new \TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+        $pdf->SetCreator('نور الصباح');
+        $pdf->SetTitle('سند قبض ' . $r->receipt_no);
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->SetMargins(15, 15, 15);
+        $pdf->SetAutoPageBreak(true, 15);
+        $pdf->setRTL(true);
+        $pdf->AddPage();
+        $pdf->SetFont('dejavusans', '', 11); // خط يدعم العربية ويربط الحروف (وإلا ظهرت ؟؟؟)
+
+        $brand = config('ai.receipt_letterhead') ?: 'شركة نور الصباح الاستثمارية';
+        $html = '<style>
+            h1{font-size:18px;color:#0b56a4;font-weight:bold;text-align:center;margin:0}
+            .t{font-size:14px;font-weight:bold;text-align:center;color:#181c32;margin:6px 0 14px}
+            table{width:100%;border-collapse:collapse}
+            td{border:1px solid #cfd8e3;padding:8px 10px;font-size:11px}
+            td.k{background-color:#eef3f8;color:#181c32;font-weight:bold;width:38%}
+            .amt{font-size:14px;font-weight:bold;color:#0b56a4}
+            .sig{margin-top:26px;font-size:11px}
+        </style>';
+        $html .= '<h1>' . htmlspecialchars($brand) . '</h1>';
+        $html .= '<div class="t">سند قبض</div><table>';
+        foreach ($rows as [$k, $v]) {
+            $cls = $k === 'المبلغ المقبوض' ? ' class="amt"' : '';
+            $html .= '<tr><td class="k">' . htmlspecialchars($k) . '</td><td' . $cls . '>' . htmlspecialchars((string) $v) . '</td></tr>';
+        }
+        $html .= '</table>';
+        $html .= '<table class="sig"><tr><td style="border:none">توقيع المستلم: ...........................</td>'
+            . '<td style="border:none">توقيع الموظف: ...........................</td></tr></table>';
+
+        $pdf->writeHTML($html, true, false, true, false, '');
+
+        $safe = 'receipt_' . $r->receipt_id;
+
+        return response($pdf->Output($safe . '.pdf', 'S'), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $safe . '.pdf"',
+        ]);
+    }
+
     /** تحميل ملف العقد (PDF) المستورد بالذكاء الاصطناعي — من القرص الخاص. */
     public function contractFile(int $shopRent)
     {

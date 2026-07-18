@@ -146,6 +146,15 @@
                     .catch(function(){ toast('تعذّر الرفض', false); });
                 return;
             }
+            var del = e.target.closest('.js-delete');
+            if (del){ e.preventDefault();
+                if(!confirm('تأكيد حذف هذا العقد من قائمة الانتظار؟ (تُسجَّل العملية)')) return;
+                del.disabled=true;
+                post(del.getAttribute('data-url'), {})
+                    .then(function(res){ toast(res.message); reloadList(); })
+                    .catch(function(err){ del.disabled=false; toast(err && err.message ? err.message : 'تعذّر الحذف', false); });
+                return;
+            }
             var all = e.target.closest('#approveAllBtn');
             if (all){ e.preventDefault();
                 var rows=[].map.call(document.querySelectorAll('tr[data-item]'), function(tr){ return {id:tr.getAttribute('data-item'), shop_id:(tr.querySelector('.row-shop')||{}).value||''}; });

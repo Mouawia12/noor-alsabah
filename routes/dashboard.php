@@ -358,6 +358,7 @@ Route::group([
         Route::post('/rent/ai/batch/{batch}/step', [RentAiController::class, 'step'])->name('rent.ai.batch.step');
         Route::get('/rent/ai/item/{item}/image/{page?}', [RentAiController::class, 'image'])->name('rent.ai.image');
         Route::get('/rent/ai/item/{item}/pdf', [RentAiController::class, 'itemPdf'])->name('rent.ai.item.pdf');
+        Route::post('/rent/ai/item/{item}/delete', [RentAiController::class, 'destroy'])->name('rent.ai.destroy');
         Route::get('/rent/ai/failed', [RentAiController::class, 'failed'])->name('rent.ai.failed');
         Route::get('/rent/ai/reports', [RentAiController::class, 'reports'])->name('rent.ai.reports');
         Route::get('/rent/ai/reports/export', [RentAiController::class, 'exportReports'])->name('rent.ai.reports.export');
@@ -375,6 +376,7 @@ Route::group([
         // ===== متابعة سداد العقود على مستوى المحل =====
         Route::get('/shop/{shop}/payments', [ShopPaymentController::class, 'show'])->name('shop.payments');
         Route::get('/rent/contract/{shopRent}/file', [ShopPaymentController::class, 'contractFile'])->name('rent.contract.file');
+        Route::get('/rent/receipt/{receipt}/pdf', [ShopPaymentController::class, 'receiptPdf'])->name('shop.receipt.pdf');
         Route::get('/shop/{shop}/financial-report', [ShopPaymentController::class, 'report'])->name('shop.financial_report');
         Route::get('/shop/{shop}/financial-report/export', [ShopPaymentController::class, 'exportReport'])->name('shop.financial_report.export');
         Route::post('/rent/pay/{rentpay}/record', [ShopPaymentController::class, 'record'])->name('rent.pay.record');

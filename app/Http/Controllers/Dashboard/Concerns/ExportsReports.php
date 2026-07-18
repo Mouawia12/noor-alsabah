@@ -19,7 +19,9 @@ trait ExportsReports
     protected function exportData(string $title, array $summaryRows, $detailRows, array $detailHeader, string $format)
     {
         $clean = str_replace('_', ' ', $title);
-        $detailRows = array_map(fn ($r) => array_values((array) $r), (array) $detailRows);
+        // تطبيع الصفوف لمصفوفة قيم — يعمل مع مصفوفة عادية أو Collection من stdClass.
+        // (ملاحظة: (array) على Collection يُعيد خصائصها الداخلية لا عناصرها، لذا نستخدم collect().)
+        $detailRows = collect($detailRows)->map(fn ($r) => array_values((array) $r))->all();
 
         return $format === 'pdf'
             ? $this->exportPdf($title, $clean, $summaryRows, $detailRows, $detailHeader)
@@ -83,9 +85,11 @@ trait ExportsReports
                 $html .= '<th>' . htmlspecialchars((string) $h) . '</th>';
             }
             $html .= '</tr>';
-            foreach ($detailRows as $i => $d) {
-                $html .= '<tr class="' . ($i % 2 ? 'zebra' : '') . '">';
-                foreach ($d as $v) {
+            $rowIdx = 0;
+            foreach ($detailRows as $d) {
+                $html .= '<tr class="' . ($rowIdx++ % 2 ? 'zebra' : '') . '">';
+                // نقبل الصفوف ككائن (stdClass) أو مصفوفة على حدٍّ سواء
+                foreach ((array) $d as $v) {
                     $html .= '<td>' . htmlspecialchars((string) $v) . '</td>';
                 }
                 $html .= '</tr>';
