@@ -321,6 +321,7 @@ Route::group([
         Route::get('/ai/overview', [\App\Http\Controllers\Dashboard\AiDashboardController::class, 'overview'])->name('ai.overview');
 
         // ===== استيراد الفواتير بالذكاء الاصطناعي (يجب أن تسبق resource لتفادي التقاط /purchase/{purchase}) =====
+        Route::get('/purchase/{purchase}/attachment', [PurchaseAiController::class, 'attachment'])->name('purchase.attachment');
         Route::get('/purchase/ai', [PurchaseAiController::class, 'index'])->name('purchase.ai.index');
         Route::post('/purchase/ai/upload', [PurchaseAiController::class, 'store'])->name('purchase.ai.store');
         Route::get('/purchase/ai/review', [PurchaseAiController::class, 'review'])->name('purchase.ai.review');

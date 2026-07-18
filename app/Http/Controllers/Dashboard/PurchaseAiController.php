@@ -217,6 +217,46 @@ class PurchaseAiController extends Controller
         return response()->file($paths[$page]);
     }
 
+    /**
+     * عرض مرفق فاتورة الشراء (صورة/ملف) — يعمل للفواتير اليدوية (ملف عام) وللمستوردة
+     * بالذكاء الاصطناعي (صورة المصدر على القرص الخاص). يحلّ مشكلة «المرفق لا يفتح» بعد الترحيل.
+     */
+    public function attachment(int $purchase)
+    {
+        $row = DB::table('purchase')->where('purchase_id', $purchase)->first();
+        abort_if(! $row, 404, 'الفاتورة غير موجودة.');
+
+        // فاتورة مستوردة بالـAI: اعرض صورة المصدر من القرص الخاص (أو ملف الدفعة الأصلي)
+        if (! empty($row->import_item_id)) {
+            $item = PurchaseImportItem::find($row->import_item_id);
+            if ($item) {
+                $paths = array_values(array_filter(
+                    explode(',', (string) $item->source_file_path),
+                    fn ($p) => $p !== '' && is_file($p)
+                ));
+                if (! empty($paths)) {
+                    return response()->file($paths[0]);
+                }
+                if ($item->batch && $item->batch->file_path) {
+                    $abs = Storage::disk(config('ai.disk'))->path($item->batch->file_path);
+                    if (is_file($abs)) {
+                        return response()->file($abs, ['Content-Type' => 'application/pdf']);
+                    }
+                }
+            }
+        }
+
+        // فاتورة يدوية: ملف عام تحت public/
+        if (! empty($row->purchasefile)) {
+            $pub = public_path(ltrim($row->purchasefile, '/'));
+            if (is_file($pub)) {
+                return response()->file($pub);
+            }
+        }
+
+        abort(404, 'المرفق غير موجود.');
+    }
+
     /** العناصر الفاشلة + إعادة المعالجة. */
     public function failed()
     {
