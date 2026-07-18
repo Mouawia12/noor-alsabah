@@ -89,6 +89,8 @@ return [
     // 150 DPI كافٍ لنماذج الرؤية لقراءة الفواتير، وأخفّ بكثير على CPU/الذاكرة من 200
     // (مهم على الاستضافة المشتركة). ارفعه فقط إن ظهرت مشاكل قراءة فعلية.
     'pdf_render_dpi'     => (int) env('AI_PDF_RENDER_DPI', 150),
+    // عدد الصفحات لكل تمريرة تحويل عبر Imagick (توازن سرعة/ذاكرة للملفات الكبيرة)
+    'pdf_rasterize_chunk' => (int) env('AI_PDF_RASTERIZE_CHUNK', 4),
     'optimize_images'    => (bool) env('AI_OPTIMIZE_IMAGES', true),
     'image_max_edge'     => (int) env('AI_IMAGE_MAX_EDGE', 1800),
     'image_jpeg_quality' => (int) env('AI_IMAGE_JPEG_QUALITY', 85),

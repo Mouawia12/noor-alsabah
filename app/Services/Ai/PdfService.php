@@ -134,24 +134,106 @@ class PdfService
         return $paths;
     }
 
+    /**
+     * تحويل PDF عبر امتداد Imagick — قوي للملفات الكبيرة كثيرة الصفحات:
+     * يقرأ بالدُفعات (تمريرة Ghostscript واحدة لكل عدّة صفحات بدل تمريرة لكل صفحة) لتسريع
+     * كبير، مع حدود موارد صريحة وتراجع آمن (صفحة بصفحة) عند فشل الدُفعة، وتحرير الذاكرة.
+     */
     protected function viaImagickExt(string $pdf, string $outDir, int $dpi): array
     {
+        $this->tuneImagick();
         $count = $this->pageCount($pdf);
+        if ($count < 1) {
+            throw new RuntimeException('ملف PDF لا يحتوي صفحات قابلة للقراءة.');
+        }
+
         $paths = [];
-        for ($i = 0; $i < $count; $i++) {
-            $out = rtrim($outDir, '/') . '/page_' . ($i + 1) . '.png';
-            $im = new \Imagick();
-            $im->setResolution($dpi, $dpi);
-            $im->readImage($pdf . '[' . $i . ']');
+        $chunk = max(1, (int) config('ai.pdf_rasterize_chunk', 4)); // صفحات لكل تمريرة
+
+        for ($start = 0; $start < $count; $start += $chunk) {
+            $end = min($start + $chunk - 1, $count - 1);
+            try {
+                foreach ($this->rasterizeRange($pdf, $outDir, $dpi, $start, $end) as $p) {
+                    $paths[] = $p;
+                }
+            } catch (\Throwable $e) {
+                // فشل الدُفعة (ذاكرة/موارد) → تراجع لصفحة بصفحة (أخفّ على الذاكرة)
+                for ($i = $start; $i <= $end; $i++) {
+                    $paths[] = $this->rasterizeOnePage($pdf, $outDir, $dpi, $i);
+                }
+            }
+            if (function_exists('gc_collect_cycles')) {
+                gc_collect_cycles();
+            }
+        }
+
+        return $paths;
+    }
+
+    /** يحوّل نطاق صفحات [start..end] في تمريرة واحدة ويكتب كل صفحة صورةً PNG. */
+    protected function rasterizeRange(string $pdf, string $outDir, int $dpi, int $start, int $end): array
+    {
+        $im = new \Imagick();
+        $im->setResolution($dpi, $dpi);
+        $im->readImage($pdf . '[' . $start . '-' . $end . ']');
+
+        $paths = [];
+        $num = $im->getNumberImages();
+        for ($k = 0; $k < $num; $k++) {
+            // نكتب الصورة الحالية (iterator) مباشرةً — لا دمج لكل الصفحات
+            $im->setIteratorIndex($k);
+            $this->flattenCurrent($im);
             $im->setImageFormat('png');
-            $im->setImageBackgroundColor('white');
-            $im = $im->flattenImages();
+            $out = rtrim($outDir, '/') . '/page_' . ($start + $k + 1) . '.png';
             $im->writeImage($out);
-            $im->clear();
-            $im->destroy();
             $paths[] = $out;
         }
+        $im->clear();
+        $im->destroy();
+
         return $paths;
+    }
+
+    /** يحوّل صفحة واحدة (مسار التراجع الآمن للذاكرة عند فشل الدُفعة). */
+    protected function rasterizeOnePage(string $pdf, string $outDir, int $dpi, int $i): string
+    {
+        $im = new \Imagick();
+        $im->setResolution($dpi, $dpi);
+        $im->readImage($pdf . '[' . $i . ']');
+        $this->flattenCurrent($im);
+        $im->setImageFormat('png');
+        $out = rtrim($outDir, '/') . '/page_' . ($i + 1) . '.png';
+        $im->writeImage($out);
+        $im->clear();
+        $im->destroy();
+
+        return $out;
+    }
+
+    /**
+     * يسطّح الصورة الحالية (iterator) على خلفية بيضاء في مكانها — بديل آمن لـ flattenImages
+     * الذي يدمج كل صفحات المستند. ALPHACHANNEL_REMOVE يركّب الصورة على لون الخلفية.
+     */
+    protected function flattenCurrent(\Imagick $im): void
+    {
+        try {
+            $im->setImageBackgroundColor('white');
+            $im->setImageAlphaChannel(\Imagick::ALPHACHANNEL_REMOVE);
+        } catch (\Throwable $e) {
+            // بعض الإصدارات لا تدعم الثابت — الخلفية البيضاء مضبوطة على الأقل
+        }
+    }
+
+    /** يرفع حدود موارد Imagick (أفضل جهد) لتفادي «cache resources exhausted» على الملفات الكبيرة. */
+    protected function tuneImagick(): void
+    {
+        try {
+            \Imagick::setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 512 * 1024 * 1024);
+            \Imagick::setResourceLimit(\Imagick::RESOURCETYPE_MAP, 1024 * 1024 * 1024);
+            \Imagick::setResourceLimit(\Imagick::RESOURCETYPE_DISK, 4 * 1024 * 1024 * 1024);
+        } catch (\Throwable $e) {
+            // policy.xml قد يقيّد؛ نتابع بأفضل جهد
+        }
     }
 
     protected function viaGhostscript(string $bin, string $pdf, string $outDir, int $dpi): array
