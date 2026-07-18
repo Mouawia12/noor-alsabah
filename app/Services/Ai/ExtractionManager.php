@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Services\Ai\Contracts\ExtractionEngine;
+use App\Services\Ai\Engines\GeminiEngine;
 use App\Services\Ai\Engines\OpenAiEngine;
 use InvalidArgumentException;
 
@@ -18,6 +19,7 @@ class ExtractionManager
 
         return match ($name) {
             'openai' => new OpenAiEngine(),
+            'gemini' => new GeminiEngine(),
             default  => throw new InvalidArgumentException("محرك استخراج غير مدعوم: {$name}"),
         };
     }

@@ -31,6 +31,19 @@ return [
     ],
 
     /*
+    | Google Gemini — مزوّد بديل (رؤية + مخرجات JSON منظّمة).
+    | يُختار عبر ai.engine=gemini (من .env أو من صفحة الإعدادات).
+    */
+    'gemini' => [
+        'api_key'     => env('GEMINI_API_KEY'),
+        'base_url'    => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+        'model'       => env('GEMINI_MODEL', 'gemini-2.0-flash'),
+        'model_heavy' => env('GEMINI_MODEL_HEAVY', 'gemini-2.5-pro'),
+        'timeout'     => (int) env('GEMINI_TIMEOUT', 120),
+        'max_retries' => (int) env('GEMINI_MAX_RETRIES', 3),
+    ],
+
+    /*
     |--------------------------------------------------------------------------
     | حدود وعتبات المعالجة
     |--------------------------------------------------------------------------

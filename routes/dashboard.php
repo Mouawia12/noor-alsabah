@@ -13,6 +13,7 @@ use App\Http\Controllers\Dashboard\ShopCodeController;
 use App\Http\Controllers\Dashboard\ManagerController;
 use App\Http\Controllers\Dashboard\PurchaseController;
 use App\Http\Controllers\Dashboard\PurchaseAiController;
+use App\Http\Controllers\Dashboard\SettingsController;
 use App\Http\Controllers\Dashboard\RentAiController;
 use App\Http\Controllers\Dashboard\RentAlertsController;
 use App\Http\Controllers\Dashboard\ShopPaymentController;
@@ -321,6 +322,10 @@ Route::group([
         Route::get('/ai/overview', [\App\Http\Controllers\Dashboard\AiDashboardController::class, 'overview'])->name('ai.overview');
 
         // ===== استيراد الفواتير بالذكاء الاصطناعي (يجب أن تسبق resource لتفادي التقاط /purchase/{purchase}) =====
+        // إعدادات مفاتيح الـ API والتكامل (OpenAI / Gemini) — لمدير النظام
+        Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+        Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
+        Route::post('/settings/test', [SettingsController::class, 'test'])->name('settings.test');
         Route::get('/purchase/{purchase}/attachment', [PurchaseAiController::class, 'attachment'])->name('purchase.attachment');
         Route::get('/purchase/ai', [PurchaseAiController::class, 'index'])->name('purchase.ai.index');
         Route::post('/purchase/ai/upload', [PurchaseAiController::class, 'store'])->name('purchase.ai.store');

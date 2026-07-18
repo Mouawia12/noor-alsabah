@@ -87,6 +87,14 @@
                             <span class="menu-title text-dark">العقود غير المعالجة</span>
                         </a>
                     </div>
+                    @if (optional(auth()->user())->isAdmin || (int) optional(auth()->user())->emp_job === 1)
+                    <div class="menu-item">
+                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.settings.index') active @endif" href="{{ route('dashboard.settings.index') }}">
+                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                            <span class="menu-title text-dark fw-bold">إعدادات مفاتيح الـ API</span>
+                        </a>
+                    </div>
+                    @endif
                 </div>
             </div>
             <div class="menu-item">

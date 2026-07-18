@@ -21,5 +21,7 @@ return [
         'dashboard.shop.financial_report',
         'dashboard.rent.ai.failed',
         'dashboard.purchase.ai.failed',
+        // صفحة إعدادات مفاتيح الـ API (سكربت فحص الاتصال المضمّن)
+        'dashboard.settings.index',
     ],
 ];
