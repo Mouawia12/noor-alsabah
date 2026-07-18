@@ -125,6 +125,10 @@ class ReportController extends Controller
         $rowCount = 3;
         $objPHPExcel->getActiveSheet()->setRightToLeft(true);
         $i = 1;
+        // مجاميع نهائية (تُجمَع القيم الخام لا المنسّقة)
+        $sumTotal = 0.0;
+        $sumTax = 0.0;
+        $sumBefore = 0.0;
 
         foreach ($list as $x) {
             $purchase_no = $x->purchase_no;
@@ -132,6 +136,9 @@ class ReportController extends Controller
             $purchase_price = $x->purchase_price;                                  // شامل الضريبة
             $tax_val = number_format($purchase_price - $purchase_price / 1.15, 2);  // الضريبة
             $before_tax = number_format($purchase_price / 1.15, 2);                 // دون الضريبة
+            $sumTotal  += (float) $purchase_price;
+            $sumTax    += (float) $purchase_price - (float) $purchase_price / 1.15;
+            $sumBefore += (float) $purchase_price / 1.15;
             $tax_number = $x->tax_number ?? '';
             $purchase_respon = $x->purchase_respon;
             $shop = Shop::find($x->shop_id);
@@ -157,6 +164,19 @@ class ReportController extends Controller
             $i++;
             $rowCount++;
         }
+
+        // صفّ المجاميع النهائية أسفل التقرير (مطابق لأعمدة الشاشة: شامل/ضريبة/غير شامل)
+        $sheet = $objPHPExcel->getActiveSheet();
+        $sheet->mergeCells('A' . $rowCount . ':C' . $rowCount);
+        $sheet->SetCellValue('A' . $rowCount, 'الإجمالي');
+        $sheet->SetCellValue('D' . $rowCount, number_format($sumTotal, 2));
+        $sheet->SetCellValue('E' . $rowCount, number_format($sumTax, 2));
+        $sheet->SetCellValue('F' . $rowCount, number_format($sumBefore, 2));
+        $sheet->getStyle('A' . $rowCount . ':L' . $rowCount)->getFont()->setBold(true)->setSize(12);
+        $sheet->getStyle('A' . $rowCount . ':L' . $rowCount)->getFill()
+            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('B5B5C3');
+        $sheet->getStyle('A' . $rowCount)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
         $objWriter = new Xlsx($objPHPExcel);
         ob_start();
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
