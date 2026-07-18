@@ -25,12 +25,69 @@
         <div
             class="menu menu-column menu-title-gray-800 menu-state-title-primary menu-state-icon-primary menu-state-bullet-primary menu-arrow-gray-500"
             id="#kt_aside_menu" data-kt-menu="true">
-            <div class="menu-item">
-                <a class="menu-link @if (Route::currentRouteName() == 'dashboard.ai.overview') active @endif"
-                   href="{{ route('dashboard.ai.overview') }}">
+            @php $aiActive = \Illuminate\Support\Str::startsWith((string) Route::currentRouteName(), ['dashboard.ai.', 'dashboard.purchase.ai', 'dashboard.rent.ai']); @endphp
+            <div data-kt-menu-trigger="click" class="menu-item menu-accordion @if ($aiActive) hover show fs-6 fw-bold @endif">
+                <span class="menu-link">
                     <span class="menu-icon"><i class="fas fa-robot text-dark"></i></span>
-                    <span class="menu-title text-dark fw-bold">لوحة الذكاء الاصطناعي</span>
-                </a>
+                    <span class="menu-title text-dark fw-bold">الذكاء الاصطناعي</span>
+                    <span class="menu-arrow text-dark"></span>
+                </span>
+                <div class="menu-sub menu-sub-accordion menu-active-bg">
+                    <div class="menu-item">
+                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.ai.overview') active @endif" href="{{ route('dashboard.ai.overview') }}">
+                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                            <span class="menu-title text-dark">لوحة الذكاء الاصطناعي</span>
+                        </a>
+                    </div>
+                    <div class="menu-item">
+                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.purchase.ai.index') active @endif" href="{{ route('dashboard.purchase.ai.index') }}">
+                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                            <span class="menu-title text-dark">استخراج الفواتير (رفع)</span>
+                        </a>
+                    </div>
+                    <div class="menu-item">
+                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.purchase.ai.review') active @endif" href="{{ route('dashboard.purchase.ai.review') }}">
+                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                            <span class="menu-title text-dark">مراجعة الفواتير المستخرجة</span>
+                        </a>
+                    </div>
+                    <div class="menu-item">
+                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.purchase.ai.reports') active @endif" href="{{ route('dashboard.purchase.ai.reports') }}">
+                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                            <span class="menu-title text-dark">تقارير الفواتير</span>
+                        </a>
+                    </div>
+                    <div class="menu-item">
+                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.purchase.ai.failed') active @endif" href="{{ route('dashboard.purchase.ai.failed') }}">
+                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                            <span class="menu-title text-dark">الفواتير غير المعالجة</span>
+                        </a>
+                    </div>
+                    <div class="menu-item">
+                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.rent.ai.index') active @endif" href="{{ route('dashboard.rent.ai.index') }}">
+                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                            <span class="menu-title text-dark">استيراد عقود الإيجار</span>
+                        </a>
+                    </div>
+                    <div class="menu-item">
+                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.rent.ai.review') active @endif" href="{{ route('dashboard.rent.ai.review') }}">
+                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                            <span class="menu-title text-dark">مراجعة العقود المستخرجة</span>
+                        </a>
+                    </div>
+                    <div class="menu-item">
+                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.rent.ai.reports') active @endif" href="{{ route('dashboard.rent.ai.reports') }}">
+                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                            <span class="menu-title text-dark">تقارير الإيجارات</span>
+                        </a>
+                    </div>
+                    <div class="menu-item">
+                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.rent.ai.failed') active @endif" href="{{ route('dashboard.rent.ai.failed') }}">
+                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                            <span class="menu-title text-dark">العقود غير المعالجة</span>
+                        </a>
+                    </div>
+                </div>
             </div>
             <div class="menu-item">
                 <a class="menu-link @if (Route::currentRouteName() == 'dashboard.notifications.index') active @endif"
@@ -357,40 +414,13 @@
                         </a>
                     </div>
                     <div class="menu-item">
-                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.rent.ai.index') active @endif"
-                           href="{{ route('dashboard.rent.ai.index') }}">
-                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
-                            <span class="menu-title text-dark">استيراد عقود الإيجار بالذكاء الاصطناعي</span>
-                        </a>
-                    </div>
-                    <div class="menu-item">
-                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.rent.ai.review') active @endif"
-                           href="{{ route('dashboard.rent.ai.review') }}">
-                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
-                            <span class="menu-title text-dark">مراجعة العقود المستخرجة</span>
-                        </a>
-                    </div>
-                    <div class="menu-item">
                         <a class="menu-link @if (Route::currentRouteName() == 'dashboard.rent.alerts.index') active @endif"
                            href="{{ route('dashboard.rent.alerts.index') }}">
                             <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
                             <span class="menu-title text-dark">لوحة متابعة الإيجارات والتنبيهات</span>
                         </a>
                     </div>
-                    <div class="menu-item">
-                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.rent.ai.failed') active @endif"
-                           href="{{ route('dashboard.rent.ai.failed') }}">
-                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
-                            <span class="menu-title text-dark">العقود غير المعالجة</span>
-                        </a>
-                    </div>
-                    <div class="menu-item">
-                        <a class="menu-link @if (Route::currentRouteName() == 'dashboard.rent.ai.reports') active @endif"
-                           href="{{ route('dashboard.rent.ai.reports') }}">
-                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
-                            <span class="menu-title text-dark">تقارير الإيجارات الذكية</span>
-                        </a>
-                    </div>
+                    {{-- صفحات الذكاء الاصطناعي للعقود مُجمّعة الآن في قائمة «الذكاء الاصطناعي» أعلى الشريط --}}
 
                 </div>
             </div>
@@ -699,34 +729,7 @@
                                     <span class="menu-title">  إضافة مصاريف شراء محلات</span>
                                 </a>
                             </div>
-                            <div class="menu-item">
-                                <a class="menu-link" href="{{ route('dashboard.purchase.ai.index') }}">
-                                    <span class="menu-bullet">
-                                        <span class="bullet bullet-dot"></span>
-                                    </span>
-                                    <span class="menu-title">استيراد الفواتير بالذكاء الاصطناعي</span>
-                                </a>
-                            </div>
-                            <div class="menu-item">
-                                <a class="menu-link" href="{{ route('dashboard.purchase.ai.review') }}">
-                                    <span class="menu-bullet">
-                                        <span class="bullet bullet-dot"></span>
-                                    </span>
-                                    <span class="menu-title">مراجعة الفواتير المستخرجة</span>
-                                </a>
-                            </div>
-                            <div class="menu-item">
-                                <a class="menu-link" href="{{ route('dashboard.purchase.ai.failed') }}">
-                                    <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
-                                    <span class="menu-title">الفواتير غير المعالجة</span>
-                                </a>
-                            </div>
-                            <div class="menu-item">
-                                <a class="menu-link" href="{{ route('dashboard.purchase.ai.reports') }}">
-                                    <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
-                                    <span class="menu-title">تقارير المشتريات الذكية</span>
-                                </a>
-                            </div>
+                            {{-- صفحات الذكاء الاصطناعي للفواتير مُجمّعة الآن في قائمة «الذكاء الاصطناعي» أعلى الشريط --}}
                             <?php } ?>
                             <?php if( Perm::get_function_access(56) || Perm::get_function_access(57) || Perm::get_function_access(58)){?>
                             <div class="menu-item">
