@@ -357,6 +357,9 @@ Route::group([
         // ===== استيراد عقود الإيجار بالذكاء الاصطناعي =====
         Route::get('/rent/ai', [RentAiController::class, 'index'])->name('rent.ai.index');
         Route::post('/rent/ai/upload', [RentAiController::class, 'store'])->name('rent.ai.store');
+        Route::get('/rent/ai/batches', [RentAiController::class, 'batches'])->name('rent.ai.batches');
+        Route::get('/rent/ai/batch/{batch}/results', [RentAiController::class, 'results'])->name('rent.ai.batch.results');
+        Route::post('/rent/ai/item/{item}/field', [RentAiController::class, 'updateField'])->name('rent.ai.item.field');
         Route::get('/rent/ai/review', [RentAiController::class, 'review'])->name('rent.ai.review');
         Route::get('/rent/ai/review/export', [RentAiController::class, 'exportReview'])->name('rent.ai.review.export');
         Route::get('/rent/ai/batch/{batch}', [RentAiController::class, 'batch'])->name('rent.ai.batch');

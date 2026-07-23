@@ -70,6 +70,12 @@
                         </a>
                     </div>
                     <div class="menu-item">
+                        <a class="menu-link @if (in_array(Route::currentRouteName(), ['dashboard.rent.ai.batches','dashboard.rent.ai.batch.results'])) active @endif" href="{{ route('dashboard.rent.ai.batches') }}">
+                            <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                            <span class="menu-title text-dark">عقود الإيجار (السجل والنتائج)</span>
+                        </a>
+                    </div>
+                    <div class="menu-item">
                         <a class="menu-link @if (Route::currentRouteName() == 'dashboard.rent.ai.review') active @endif" href="{{ route('dashboard.rent.ai.review') }}">
                             <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
                             <span class="menu-title text-dark">مراجعة العقود المستخرجة</span>

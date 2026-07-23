@@ -165,6 +165,77 @@ class RentAiController extends Controller
         ]);
     }
 
+    /** سجل عمليات استخراج عقود الإيجار: كل ملف مرفوع بسطر مع حالته وعدد صفحاته. */
+    public function batches()
+    {
+        $batches = RentContractImportBatch::withCount([
+            'items',
+            'items as needs_review_count' => fn ($q) => $q->where('status', RentContractImportItem::STATUS_NEEDS_REVIEW),
+            'items as approved_count'     => fn ($q) => $q->where('status', RentContractImportItem::STATUS_APPROVED),
+            'items as failed_count'       => fn ($q) => $q->where('status', RentContractImportItem::STATUS_FAILED),
+        ])->latest()->paginate(20);
+
+        return view('dashboard.rent.ai.batches', [
+            'page_title' => 'عقود الإيجار — سجل الاستخراج',
+            'batches'    => $batches,
+        ]);
+    }
+
+    /** نتائج دفعة واحدة: بطاقات إحصائية + جدول تفصيلي قابل للتعديل داخل الخلية. */
+    public function results(RentContractImportBatch $batch)
+    {
+        $this->guardAiBatch($batch);
+
+        $items = RentContractImportItem::where('batch_id', $batch->id)
+            ->where('status', '!=', RentContractImportItem::STATUS_MERGED)
+            ->orderBy('page_from')->get();
+
+        $stats = [
+            'total'        => $items->count(),
+            'needs_review' => $items->where('status', RentContractImportItem::STATUS_NEEDS_REVIEW)->count(),
+            'approved'     => $items->where('status', RentContractImportItem::STATUS_APPROVED)->count(),
+            'failed'       => $items->where('status', RentContractImportItem::STATUS_FAILED)->count(),
+        ];
+
+        $shops = DB::table('shop')->orderBy('shop_name')->get(['shop_id', 'shop_name', 'shop_code']);
+
+        return view('dashboard.rent.ai.results', [
+            'page_title' => 'نتائج عقود الإيجار — ' . $batch->original_filename,
+            'batch'      => $batch,
+            'items'      => $items,
+            'stats'      => $stats,
+            'shops'      => $shops,
+        ]);
+    }
+
+    /** حفظ تعديل حقل واحد من داخل الخلية (inline) في بيانات العقد المستخرجة. */
+    public function updateField(Request $request, RentContractImportItem $item)
+    {
+        $this->guardAiItem($item);
+
+        $data = $request->validate([
+            'field' => ['required', 'string', 'in:contract_no,tenant,landlord,property_info,start_date,end_date,rent_value,payments_count,payment_amount'],
+            'value' => ['nullable', 'string', 'max:500'],
+        ], ['field.in' => 'حقل غير قابل للتعديل.']);
+
+        $j = $item->extracted_json ?: [];
+        $d = (array) ($j['data'] ?? []);
+
+        $v = trim((string) ($data['value'] ?? ''));
+        if (in_array($data['field'], ['rent_value', 'payments_count', 'payment_amount'], true)) {
+            $v = $v === '' ? null : (float) str_replace([',', '٬'], '', $v);
+        } else {
+            $v = $v === '' ? null : $v;
+        }
+
+        $d[$data['field']] = $v;
+        $j['data'] = $d;
+        $item->extracted_json = $j;
+        $item->save();
+
+        return response()->json(['ok' => true, 'message' => 'تم الحفظ.', 'field' => $data['field'], 'value' => $v]);
+    }
+
     public function review(Request $request)
     {
         $page_title = 'مراجعة واعتماد العقود المستخرجة';

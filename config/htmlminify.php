@@ -23,5 +23,8 @@ return [
         'dashboard.purchase.ai.failed',
         // صفحة إعدادات مفاتيح الـ API (سكربت فحص الاتصال المضمّن)
         'dashboard.settings.index',
+        // سجل ونتائج عقود الإيجار (سكربت التعديل داخل الخلية)
+        'dashboard.rent.ai.batches',
+        'dashboard.rent.ai.batch.results',
     ],
 ];
