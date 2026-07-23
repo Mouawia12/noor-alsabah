@@ -246,11 +246,25 @@ class PurchaseAiController extends Controller
             }
         }
 
-        // فاتورة يدوية: ملف عام تحت public/
         if (! empty($row->purchasefile)) {
-            $pub = public_path(ltrim($row->purchasefile, '/'));
+            $rel = ltrim((string) $row->purchasefile, '/');
+
+            // فاتورة يدوية: ملف عام تحت public/
+            $pub = public_path($rel);
             if (is_file($pub)) {
                 return response()->file($pub);
+            }
+
+            // فاتورة مُرحّلة بالـAI: المسار مخزَّن على القرص الخاص (ai_private) — نخدمه من هناك
+            // (هذا سبب ظهور «غير متوفر» سابقاً: كنّا نبحث في العام فقط فيُرجع 404).
+            try {
+                $priv = Storage::disk(config('ai.disk'))->path($rel);
+                if (is_file($priv)) {
+                    $mime = str_ends_with(strtolower($rel), '.pdf') ? 'application/pdf' : null;
+                    return response()->file($priv, $mime ? ['Content-Type' => $mime] : []);
+                }
+            } catch (\Throwable $e) {
+                // قرص غير مهيّأ — نتابع إلى 404 برسالة واضحة
             }
         }
 

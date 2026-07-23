@@ -110,9 +110,15 @@ class RentImportService
     }
 
     /** أول دفعة سابقة بنفس بصمة الملف (لرفض المكرّر قبل تخزينه). */
+    /**
+     * دفعة سابقة بنفس بصمة الملف يُمنع تكرار رفعها — فقط إن كانت عقودها ما تزال قائمة.
+     * حُذفت عقودها قبل الاعتماد ⇒ يُسمح برفع الملف من جديد.
+     */
     public function findByHash(string $hash): ?RentContractImportBatch
     {
-        return RentContractImportBatch::where('file_hash', $hash)->latest()->first();
+        return RentContractImportBatch::where('file_hash', $hash)
+            ->whereHas('items')
+            ->latest()->first();
     }
 
     /**

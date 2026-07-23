@@ -119,9 +119,16 @@ class PurchaseImportService
     }
 
     /** أول دفعة سابقة بنفس بصمة الملف (لرفض المكرّر قبل تخزينه). */
+    /**
+     * دفعة سابقة بنفس بصمة الملف **يُمنع** تكرار رفعها.
+     * المنع فقط إن كانت فواتيرها ما تزال قائمة أو رُحّلت فعلاً إلى فرع؛ أمّا إن حُذفت
+     * فواتيرها قبل الترحيل فالرفع من جديد مسموح (طلب العميل: الحذف قبل الترحيل يعيد السماح).
+     */
     public function findByHash(string $hash): ?PurchaseImportBatch
     {
-        return PurchaseImportBatch::where('file_hash', $hash)->latest()->first();
+        return PurchaseImportBatch::where('file_hash', $hash)
+            ->whereHas('items') // لا عناصر (حُذفت) ⇒ ليست تكراراً مانعاً
+            ->latest()->first();
     }
 
     /**

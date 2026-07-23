@@ -36,6 +36,13 @@ it('rejects a duplicate contract re-upload and does NOT store or add it', functi
     $this->actingAs($user)->postJson(route('dashboard.rent.ai.store'),
         ['document' => UploadedFile::fake()->create('contracts.pdf', 300, 'application/pdf')])->assertOk();
 
+    // التكرار يُرفض ما دامت عقود الدفعة السابقة قائمة (لم تُحذف قبل الاعتماد)
+    \App\Models\RentContractImportItem::create([
+        'batch_id'  => RentContractImportBatch::first()->id,
+        'page_from' => 1, 'page_to' => 1,
+        'status'    => \App\Models\RentContractImportItem::STATUS_NEEDS_REVIEW,
+    ]);
+
     $second = $this->actingAs($user)->postJson(route('dashboard.rent.ai.store'),
         ['document' => UploadedFile::fake()->create('contracts.pdf', 300, 'application/pdf')]);
 

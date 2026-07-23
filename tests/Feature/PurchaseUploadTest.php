@@ -61,6 +61,13 @@ it('rejects a duplicate re-upload with a clear message and does NOT store or add
         ['document' => UploadedFile::fake()->create('invoices.pdf', 300, 'application/pdf')]);
     $first->assertOk();
 
+    // التكرار يُرفض ما دامت فواتير الدفعة السابقة قائمة (لم تُحذف قبل الترحيل)
+    \App\Models\PurchaseImportItem::create([
+        'batch_id'  => PurchaseImportBatch::first()->id,
+        'page_from' => 1, 'page_to' => 1,
+        'status'    => \App\Models\PurchaseImportItem::STATUS_NEEDS_REVIEW,
+    ]);
+
     $second = $this->actingAs($user)->postJson(route('dashboard.purchase.ai.store'),
         ['document' => UploadedFile::fake()->create('invoices.pdf', 300, 'application/pdf')]);
 

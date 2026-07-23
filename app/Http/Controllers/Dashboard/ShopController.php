@@ -575,6 +575,24 @@ class ShopController extends Controller
                 $row[] = $i;
                 $row[] = Carbon::parse($x->rentpay_dt)->format('d-m-Y');
                 $row[] = $x->rentpay_price;
+
+                // حالة السداد — تُقرأ من نفس أعمدة shop_rentpay التي يحدّثها تسجيل الدفعة
+                // (شاشة متابعة السداد)، فينعكس السداد هنا مباشرةً.
+                $paid      = (float) ($x->paid_amount ?? 0);
+                $due       = (float) ($x->rentpay_price ?? 0);
+                $remaining = max(0.0, round($due - $paid, 2));
+                $status    = $x->status ?? (! empty($x->is_paid) ? 'paid' : 'unpaid');
+                $isOverdue = $status !== 'paid' && ! empty($x->rentpay_dt)
+                    && Carbon::parse($x->rentpay_dt)->lt(Carbon::today());
+                $labels = ['paid' => 'مسدَّدة', 'partial' => 'مسدَّدة جزئياً', 'unpaid' => 'غير مسدَّدة', 'overdue' => 'متأخّرة'];
+                $badge  = ['paid' => 'success', 'partial' => 'warning', 'unpaid' => 'secondary', 'overdue' => 'danger'];
+                $key    = $isOverdue ? 'overdue' : ($labels[$status] ?? null ? $status : 'unpaid');
+
+                $row[] = '<span class="badge badge-light-' . ($badge[$key] ?? 'secondary') . '">' . ($labels[$key] ?? 'غير مسدَّدة') . '</span>';
+                $row[] = number_format($paid, 2);
+                $row[] = number_format($remaining, 2);
+                $row[] = ! empty($x->paid_at) ? Carbon::parse($x->paid_at)->format('d-m-Y') : '—';
+
                 $row[] = $x->rentpay_note;
                 $row[] = Carbon::parse($x->created_at)->format('d-m-Y');
                 if (Perm::get_function_access(37)||Perm::get_function_access(38)) {
