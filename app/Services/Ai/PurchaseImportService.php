@@ -206,6 +206,10 @@ class PurchaseImportService
                 'supplier_id'       => $supplierId,
                 'purchase_respon'   => $supplierName,
                 'shop_id'           => $shopId,
+                // مهم: نضبط manager_id = null صراحةً (مطابقة للإدخال اليدوي). بحث «المحل»
+                // (shops=on) يشترط manager_id IS NULL؛ وترك العمود لقيمته الافتراضية على بعض
+                // السيرفرات (غير NULL) كان يُخفي الفاتورة المُرحّلة عن نتائج البحث بالمحل.
+                'manager_id'        => null,
                 'purchasefile'      => $item->batch->file_path ?? null,
                 'note'              => $data['note'] ?? null,
                 'import_item_id'    => $item->id,

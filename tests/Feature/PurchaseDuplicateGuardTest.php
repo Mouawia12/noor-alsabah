@@ -28,6 +28,7 @@ beforeEach(function () {
         $t->unsignedBigInteger('supplier_id')->nullable();
         $t->string('purchase_respon')->nullable();
         $t->unsignedBigInteger('shop_id')->nullable();
+        $t->unsignedBigInteger('manager_id')->nullable();
         $t->string('purchasefile')->nullable();
         $t->text('note')->nullable();
         $t->unsignedBigInteger('import_item_id')->nullable();

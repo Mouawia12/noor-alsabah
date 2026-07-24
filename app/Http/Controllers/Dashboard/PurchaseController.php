@@ -100,14 +100,23 @@ class PurchaseController extends Controller
                 $row[] = $x->tax_number;
 
                 $shop = Shop::find($x->shop_id);
-                if ($request->shops == "on")
-                    // كود الفرع بجانب الاسم لتمييز المحلات المتشابهة
-                    $row[] = isset($shop) ? (($shop->shop_code ? '(' . $shop->shop_code . ') ' : '') . $shop->shop_name . " - " . $shop->municip->municip_no) : "";
-                else
+                if ($request->shops == "on") {
+                    // كود الفرع بجانب الاسم لتمييز المحلات المتشابهة.
+                    // آمن ضد null: محل بلا مدينة (مثل محل «تجربة») كان يُسبّب خطأ 500 في البحث
+                    // بالمحل بعد ترحيل فاتورة إليه (Attempt to read property on null).
+                    if (isset($shop)) {
+                        $municip = optional($shop->municip)->municip_no;
+                        $row[] = ($shop->shop_code ? '(' . $shop->shop_code . ') ' : '') . $shop->shop_name
+                            . ($municip ? ' - ' . $municip : '');
+                    } else {
+                        $row[] = "";
+                    }
+                } else {
                     $row[] = $x->manager_name;
+                }
 
                 $row[] = $x->purchase_respon;
-                $row[] = User::find($x->create_user)->name;
+                $row[] = optional(User::find($x->create_user))->name; // مستخدم محذوف/غير موجود لا يُسقط البحث
 
                 $row[] = Carbon::parse($x->created_at)->format('d-m-Y');
                 $row[] = $x->note;
