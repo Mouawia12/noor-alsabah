@@ -113,12 +113,15 @@ class ProcessRentContractItemJob implements ShouldQueue
         $batch->update(['processed_items' => $processed, 'failed_items' => $failed]);
 
         if ($pending === 0 && $batch->total_items > 0 && ! $wasCompleted) {
-            // دمج صفحات التكملة مع عقودها (صفحة التوقيع لا تظهر كعقد فارغ)
+            // دمج صفحات العقد الواحد (عقد EJAR الموحّد يمتدّ لعدّة صفحات: الهوية في الصفحة
+            // الأولى، والقيمة المالية والدفعات في صفحات لاحقة). مهمّ: **لا نمرّر حقول المبلغ**
+            // كفاصل مستندات هنا — وإلا اعتُبرت الصفحة المالية عقداً جديداً فانفصلت عن صفحة
+            // الهوية وضاعت نصف البيانات. فقط رقم عقد **مختلف** يبدأ عقداً جديداً.
             $items = RentContractImportItem::where('batch_id', $batch->id)
                 ->where('status', RentContractImportItem::STATUS_NEEDS_REVIEW)
                 ->orderBy('page_from')->get();
             $docs = app(\App\Services\Ai\PageMergeService::class)->merge(
-                $items, ['contract_no'], ['rent_value', 'payment_amount'], RentContractImportItem::STATUS_MERGED
+                $items, ['contract_no'], [], RentContractImportItem::STATUS_MERGED
             );
 
             $batch->update(['status' => RentContractImportBatch::STATUS_COMPLETED]);

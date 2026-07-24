@@ -41,10 +41,34 @@ function runMerge(int $batchId): int
         ->where('status', RentContractImportItem::STATUS_NEEDS_REVIEW)
         ->orderBy('page_from')->get();
 
+    // مطابق لنداء المسار الفعلي: للعقود لا نمرّر حقول مبلغ كفاصل (الصفحة المالية جزء من العقد).
     return app(PageMergeService::class)->merge(
-        $items, ['contract_no'], ['rent_value', 'payment_amount'], RentContractImportItem::STATUS_MERGED
+        $items, ['contract_no'], [], RentContractImportItem::STATUS_MERGED
     );
 }
+
+it('EJAR: merges the identity page + the FINANCIAL page (with amounts) into ONE complete contract', function () {
+    $b = mergeBatch();
+    // صفحة الهوية (رقم العقد/المستأجر/المؤجر/التواريخ) بلا قيمة مالية
+    $p1 = mergeItem($b->id, 1, [
+        'contract_no' => '20871952286/1-0', 'tenant' => 'مطعم هاني', 'landlord' => 'عباس الدخيل',
+        'start_date' => '2024-01-01', 'end_date' => '2028-12-31', 'rent_value' => null, 'payments_count' => null,
+    ], 'p1.png');
+    // صفحة العقار
+    mergeItem($b->id, 2, ['property_info' => 'محل رقم 1'], 'p2.png');
+    // الصفحة المالية: فيها مبلغ لكنها **نفس العقد** — يجب أن تُدمج لا أن تنفصل
+    mergeItem($b->id, 3, ['rent_value' => 40000, 'payments_count' => 10, 'payment_amount' => 20000], 'p3.png');
+
+    expect(runMerge($b->id))->toBe(1); // عقد واحد كامل (كان ينفصل لعقدين ناقصين)
+
+    $d = $p1->fresh()->extracted_json['data'];
+    expect($d['contract_no'])->toBe('20871952286/1-0');
+    expect($d['tenant'])->toBe('مطعم هاني');
+    expect($d['landlord'])->toBe('عباس الدخيل');
+    expect((float) $d['rent_value'])->toBe(40000.0);    // مُلئت من الصفحة المالية
+    expect((int) $d['payments_count'])->toBe(10);
+    expect($d['property_info'])->toBe('محل رقم 1');
+});
 
 it('merges a signature/continuation page (no id, no amount) into its contract', function () {
     $b = mergeBatch();
